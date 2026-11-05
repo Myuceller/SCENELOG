@@ -1,0 +1,10 @@
+.card { min-width: 0; }
+.poster { position: relative; aspect-ratio: 2 / 3; overflow: hidden; border-radius: 8px; background: #e9e5df; }
+.poster img { object-fit: cover; transition: transform 200ms ease; }
+.card:hover .poster img { transform: scale(1.025); }
+.heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; margin-top: 14px; }
+.heading h3 { margin: 0; font-size: 15px; line-height: 1.45; letter-spacing: -.5px; }
+.rating { display: flex; align-items: center; gap: 3px; flex-shrink: 0; padding-top: 2px; color: var(--accent); font-size: 13px; font-weight: 700; }
+.meta { margin: 7px 0 0; font-size: 11px; color: var(--muted); }
+.description { margin: 9px 0 0; color: #64615e; font-size: 12px; line-height: 1.7; word-break: keep-all; }
+@media (prefers-reduced-motion: reduce) { .poster img { transition: none; } }

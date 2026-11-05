@@ -1,0 +1,13 @@
+.intro { display: grid; grid-template-columns: 1.2fr 1fr; align-items: center; gap: 64px; padding: 64px 0 52px; border-bottom: 1px solid var(--border); }
+.eyebrow { margin: 0 0 20px; font-size: 10px; font-weight: 700; letter-spacing: 2px; color: var(--muted); }
+.intro h1 { margin: 0; font-size: clamp(36px, 4.3vw, 56px); line-height: 1.25; letter-spacing: -2.5px; }
+.intro h1 span { color: var(--accent); }
+.description { margin: 22px 0; font-size: 14px; color: var(--muted); line-height: 1.9; word-break: keep-all; }
+.link { display: inline-flex; align-items: center; gap: 16px; font-size: 13px; font-weight: 700; }
+.link:hover { color: var(--accent); }
+.note { position: relative; overflow: hidden; padding: 34px; background: #eeeae3; border-radius: 3px; transform: rotate(-2deg); }
+.noteLabel { font-size: 9px; letter-spacing: 1.7px; color: var(--muted); }
+.note p { position: relative; z-index: 1; margin: 30px 0 35px; font-size: clamp(19px, 2vw, 26px); font-weight: 600; line-height: 1.65; letter-spacing: -1px; word-break: keep-all; }
+.noteFooter { font-size: 11px; color: var(--muted); }
+.asterisk { position: absolute; right: 20px; bottom: -15px; color: #d4cbc0; font-size: 120px; line-height: 1; }
+@media (max-width: 600px) { .intro { grid-template-columns: 1fr; gap: 32px; padding: 40px 0 32px; } .note { padding: 24px; transform: none; } .note p { margin: 20px 0; font-size: 20px; } }

@@ -1,12 +1,14 @@
-import type { Movie } from "@/types/movie";
+import type { MovieDetail } from "@/types/movie";
 
 /** 화면 개발용 데이터입니다. 평점은 실제 사용자 집계가 아닙니다. */
-export const movies: Movie[] = [
+export const movies: MovieDetail[] = [
   {
     id: "interstellar",
     title: "인터스텔라",
     originalTitle: "Interstellar",
     year: 2014,
+    source: "sample",
+    runtime: null,
     director: "크리스토퍼 놀란",
     genres: ["SF", "드라마"],
     rating: 4.7,
@@ -18,6 +20,8 @@ export const movies: Movie[] = [
     title: "그랜드 부다페스트 호텔",
     originalTitle: "The Grand Budapest Hotel",
     year: 2014,
+    source: "sample",
+    runtime: null,
     director: "웨스 앤더슨",
     genres: ["코미디", "드라마"],
     rating: 4.3,
@@ -29,6 +33,8 @@ export const movies: Movie[] = [
     title: "라라랜드",
     originalTitle: "La La Land",
     year: 2016,
+    source: "sample",
+    runtime: null,
     director: "데이미언 셔젤",
     genres: ["로맨스", "음악"],
     rating: 4.2,
@@ -40,6 +46,8 @@ export const movies: Movie[] = [
     title: "퍼펙트 데이즈",
     originalTitle: "Perfect Days",
     year: 2023,
+    source: "sample",
+    runtime: null,
     director: "빔 벤더스",
     genres: ["드라마"],
     rating: 4.4,
@@ -51,6 +59,8 @@ export const movies: Movie[] = [
     title: "위플래쉬",
     originalTitle: "Whiplash",
     year: 2014,
+    source: "sample",
+    runtime: null,
     director: "데이미언 셔젤",
     genres: ["음악", "드라마"],
     rating: 4.5,
@@ -62,6 +72,8 @@ export const movies: Movie[] = [
     title: "패스트 라이브즈",
     originalTitle: "Past Lives",
     year: 2023,
+    source: "sample",
+    runtime: null,
     director: "셀린 송",
     genres: ["로맨스", "드라마"],
     rating: 4.1,

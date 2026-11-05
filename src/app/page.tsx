@@ -1,6 +1,5 @@
 import { ArrowUpRight } from "lucide-react";
 import { MovieList } from "@/components/home/movie-list";
-import { movies } from "@/data/movies";
 import styles from "./page.module.css";
 
 export default function HomePage() {
@@ -20,7 +19,7 @@ export default function HomePage() {
           <span className={styles.asterisk} aria-hidden="true">✳</span>
         </div>
       </section>
-      <MovieList movies={movies} />
+      <MovieList />
     </main>
   );
 }

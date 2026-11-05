@@ -9,12 +9,13 @@ type Result = { key: string } & (
   | { status: "error"; message: string }
 );
 
-export function useMovies(query: string, page: number) {
+export function useMovies(query: string, page: number, enabled = true) {
   const [attempt, setAttempt] = useState(0);
   const [result, setResult] = useState<Result | null>(null);
   const key = JSON.stringify([query, page, attempt]);
 
   useEffect(() => {
+    if (!enabled) return;
     const controller = new AbortController();
     fetchMovies(query, page, controller.signal)
       .then((data) => {
@@ -26,7 +27,7 @@ export function useMovies(query: string, page: number) {
         }
       });
     return () => controller.abort();
-  }, [query, page, key]);
+  }, [query, page, key, enabled]);
 
   return {
     result: result?.key === key ? result : null,

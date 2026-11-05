@@ -1,9 +1,24 @@
 # SCENELOG
 
 guma & gamja의 영화 취향과 평론을 기록하는 사이트입니다.
-같은 영화에 대한 서로 다른 시선을 나누고, 앞으로 0.1점 단위의 세밀한 평가를 지원하는 것을 목표로 합니다.
+같은 영화에 대한 서로 다른 시선을 나누고, 0.1점 단위의 세밀한 평가로 취향을 남깁니다.
 
-현재는 **Next.js 프로젝트 기본 구조, 메인 페이지, TMDB 영화 조회 API**를 구현했습니다. DB, 사용자 인증, 평론 작성 및 개인 평점 저장은 아직 연결하지 않았습니다.
+현재는 **TMDB 영화 조회 API와 영화 기록·컬렉션·친구 기능의 로컬 체험 UI**를 구현했습니다. 개인 별점과 리뷰는 브라우저에 저장되며, 사용자 인증과 공유 DB는 아직 연결하지 않았습니다.
+
+## 이번 화면에서 할 수 있는 일
+
+- 0.1점 단위 별점·리뷰·관람일·재관람 기록과 스포일러 표시
+- 포스터 달력과 모바일 날짜별 기록 카드
+- 우표·VHS·티어 컬렉션, OST·미장센·스토리별 독립적인 평가
+- 예시 계정 간 친구 요청·수락, 추천함, 공통 영화 비교, 그룹별 영화 대화
+- 프린터 출력 애니메이션·완료음과 별점순/티어별 PNG 저장
+- 개인 기록 JSON 백업
+
+상단 계정 선택에서 **guma**, **gamja**, **momo**를 전환해 친구 기능을 확인할 수 있습니다. 메시지는 실제 사람에게 전송되지 않으며 이 브라우저 안에 저장됩니다.
+
+발견 화면과 기록할 영화 선택은 기본적으로 TMDB API를 사용합니다. **‘예시 영화 체험’을 직접 선택한 경우에만** 기존 영화 6편을 보여줍니다. 토큰 누락이나 API 장애를 샘플로 숨기지 않습니다. 실제 영화의 상세 정보는 열 때 가져오고, 저장한 영화는 검색 페이지가 바뀌거나 새로고침해도 개인 컬렉션에서 유지됩니다.
+
+0점과 미평가는 구분합니다. 테마 점수는 전체 별점에 영향을 주지 않습니다. 재관람은 달력에 따로 기록하며, 컬렉션은 가장 최근 생성한 관람 기록의 별점을 대표로 표시합니다. 티어는 수동 지정이 우선하고, 미지정 시 S ≥4.5 / A ≥4.0 / B ≥3.0 / C ≥2.0 / D <2.0으로 분류합니다.
 
 ## 기술 구성
 
@@ -40,7 +55,7 @@ npm run dev
 ```
 
 [http://localhost:3000](http://localhost:3000)에서 인기 영화와 제목 검색을 확인합니다.
-토큰 없이도 빌드와 자동 테스트는 실행할 수 있습니다. 토큰이 없으면 영화 API는 `503 TMDB_NOT_CONFIGURED`를 반환하고 화면에는 오류 및 재시도 상태가 표시됩니다. 샘플 데이터로 자동 대체하지 않습니다.
+토큰 없이도 빌드와 자동 테스트는 실행할 수 있습니다. 토큰이 없으면 영화 API는 `503 TMDB_NOT_CONFIGURED`를 반환하고 화면에는 오류 및 재시도 상태가 표시됩니다. 샘플 데이터로 자동 대체하지 않습니다. 화면의 ‘예시 영화로 체험하기’ 버튼으로 로컬 기능을 별도 확인할 수 있습니다.
 
 ## 명령어
 
@@ -51,7 +66,7 @@ npm run dev
 | `npm start` | 빌드된 앱 실행 |
 | `npm run typecheck` | Next.js 타입 생성 및 TypeScript 검사 |
 | `npm run lint` | ESLint 검사 |
-| `npm test` | 외부 통신을 모킹한 영화 API 회귀 테스트 |
+| `npm test` | 영화 API 및 기록·정렬·영화 정보 보존 회귀 테스트 |
 
 ## 프로젝트 구조
 
@@ -77,6 +92,7 @@ src/
       schemas.ts              # TMDB 응답 스키마 및 타입
       mapper.ts               # TMDB 응답 → SCENELOG 도메인 타입
   components/
+    scenelog/                 # 기록·달력·컬렉션·테마·친구·프린트룸 UI
     layout/                   # 공통 헤더, 푸터
     home/                     # 영화 목록, 검색, 페이지 이동, 오류 상태
     movies/                   # 영화 카드
@@ -84,13 +100,18 @@ src/
     use-movies.ts             # 조회 상태, 재시도, 요청 취소
   lib/
     api/movies.ts             # 브라우저 → 같은 도메인의 Next.js API 호출
+    archive-movies.ts         # 목록/상세 정규화, 보관한 영화 카탈로그
+    scene-model.ts            # 기록·친구 타입과 순수 계산
+    scene-store.ts            # 브라우저 로컬 저장
+    print-sheet.ts            # 인쇄용 정렬과 Canvas PNG
   types/
     movie.ts                  # 영화, 상세, 목록 응답 타입
     api.ts                    # 공통 오류 응답 타입
   data/
-    movies.ts                 # 화면 개발용 샘플 (실제 API 흐름에서 미사용)
+    movies.ts                 # 명시적인 예시 영화 체험용 데이터
 public/images/                # 기존 샘플 포스터와 출처
-tests/movies-api.test.ts      # API 입력 검증, 응답 변환, 장애 처리 테스트
+tests/movies-api.test.ts       # API 입력 검증, 응답 변환, 장애 처리 테스트
+tests/scene-archive.test.ts    # 재관람, 0점/미평가, 테마·티어 정렬, 영화 정보 보존
 .env.example                  # 환경변수 이름과 설정 예시
 next.config.ts                # TMDB 포스터 이미지 호스트 허용
 ```
@@ -98,7 +119,7 @@ next.config.ts                # TMDB 포스터 이미지 호스트 허용
 ## 백엔드 역할과 데이터 흐름
 
 ```text
-MovieList → useMovies → lib/api/movies
+SceneLogApp → useMovies → lib/api/movies
                          ↓ HTTP
 app/api/movies → server/movies → server/tmdb → TMDB
                     ↓                ↓
@@ -189,7 +210,7 @@ npm run lint
 npm run build
 ```
 
-자동 테스트는 실제 토큰이나 네트워크 없이 실행됩니다. 인기 목록·검색·상세 변환, 입력 검증, 빈 결과, 누락 데이터, 토큰 미설정, TMDB 장애·호출 제한·타임아웃을 검증합니다. 실제 TMDB 연결은 토큰을 설정한 개발 서버에서 별도로 확인해야 합니다.
+자동 테스트는 실제 토큰이나 네트워크 없이 실행됩니다. 인기 목록·검색·상세 변환, 입력 검증, 빈 결과, 누락 데이터, 토큰 미설정, TMDB 장애·호출 제한·타임아웃을 검증합니다. 0점/미평가 구분, 재관람 집계, 테마·수동 티어 순위, 영화 카탈로그 보존, 상세 조회 오류 전달도 검증합니다. 실제 TMDB 연결은 토큰을 설정한 개발 서버에서 별도로 확인해야 합니다.
 
 ## 참고
 
@@ -197,3 +218,9 @@ npm run build
 - [인기 영화](https://developer.themoviedb.org/reference/movie-popular-list) / [검색](https://developer.themoviedb.org/reference/search-movie) / [상세](https://developer.themoviedb.org/reference/movie-details)
 - [Next.js 프로젝트 구조](https://nextjs.org/docs/app/getting-started/project-structure)
 - [샘플 포스터 출처](public/images/README.md)
+
+## UI 리소스와 저장 범위
+
+주황빛 빨강·흰색·검정·옅은 회색과 [Pretendard v1.3.9](https://github.com/orioncactus/pretendard)를 사용합니다. 폰트와 SIL OFL 라이선스는 `public/fonts/`에 포함합니다.
+
+개인 기록·예시 계정·친구 데이터는 `scenelog.archive.v1` 로컬 저장소에 보관합니다. 다른 브라우저나 기기에 동기화되지 않습니다. TMDB 토큰은 기존 서버 전용 경계를 그대로 유지하며 브라우저 저장소에는 넣지 않습니다. PNG 저장은 브라우저에서 생성하고, 외부 포스터를 읽지 못하면 오류를 표시합니다.

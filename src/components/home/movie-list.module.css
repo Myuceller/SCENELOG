@@ -7,6 +7,10 @@
 .search input { width: 100%; min-width: 0; border: 0; outline: none; background: transparent; color: var(--foreground); font-size: 13px; }
 .search input::-webkit-search-cancel-button { display: none; }
 .search button { display: grid; place-items: center; padding: 4px; border: 0; background: transparent; cursor: pointer; color: var(--muted); }
+.search .searchSubmit { flex-shrink: 0; color: var(--accent); font-size: 12px; font-weight: 700; }
+.pagination { display: flex; align-items: center; justify-content: center; gap: 20px; margin-top: 32px; font-size: 13px; }
+.pagination button { padding: 9px 16px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); cursor: pointer; }
+.pagination button:disabled { opacity: .4; cursor: not-allowed; }
 .count { margin: 20px 0; color: var(--muted); font-size: 12px; }
 .grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 22px; }
 .empty { display: grid; justify-items: center; padding: 60px 16px; text-align: center; border: 1px dashed var(--border); border-radius: 8px; }

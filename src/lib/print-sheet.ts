@@ -13,6 +13,7 @@ export function getPrintItems(movies: Movie[], logs: FilmLog[], theme: ThemeKey 
 }
 export async function exportPrintSheet(items: PrintItem[], title: string, user: string, mode: "rating" | "tier") {
   await document.fonts.ready;
+  const { getImageProps } = await import("next/image");
   const width = 1200;
   const rowHeight = 186;
   const height = 340 + items.length * rowHeight + 120;
@@ -32,7 +33,8 @@ export async function exportPrintSheet(items: PrintItem[], title: string, user: 
     const y = 320 + index * rowHeight;
     ctx.fillStyle = mode === "tier" && item.tier === "S" ? "#ff4b21" : "#161616";
     ctx.font = `750 38px ${font}`; ctx.fillText(mode === "tier" ? item.tier : String(index + 1).padStart(2, "0"), 76, y + 81);
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => { const image = new Image(); image.onload = () => resolve(image); image.onerror = () => reject(new Error("포스터를 읽지 못했어요. 다시 시도해 주세요.")); image.crossOrigin = "anonymous"; image.src = item.movie.poster; });
+    // Reuse Next.js same-origin poster URLs so remote CORS rules cannot taint the canvas.
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => { const image = new Image(); image.onload = () => resolve(image); image.onerror = () => reject(new Error("포스터를 읽지 못했어요. 다시 시도해 주세요.")); image.crossOrigin = "anonymous"; image.src = getImageProps({ src: item.movie.poster, alt: item.movie.title, width: 300, height: 450 }).props.src; });
     const cropWidth = Math.min(img.width, img.height * 2 / 3);
     const cropHeight = cropWidth * 3 / 2;
     ctx.drawImage(img, (img.width - cropWidth) / 2, (img.height - cropHeight) / 2, cropWidth, cropHeight, 170, y, 100, 150);

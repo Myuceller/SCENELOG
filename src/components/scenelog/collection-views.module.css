@@ -50,7 +50,8 @@
 .feedGrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
 .filmCard { min-width:0; display:grid; grid-template-columns:82px minmax(0,1fr); gap:0 16px; align-content:start; padding:12px; background:#fff; border:1px solid #e4e4e4; border-radius:10px; transition:border-color .2s,transform .2s,box-shadow .2s; }
 .filmCard:hover { border-color:#c4c4c4; transform:translateY(-2px); box-shadow:0 8px 22px #0000000a; }
-.filmPoster { grid-row:1/4; width:82px; height:123px; object-fit:cover; border-radius:3px; background:#efefed; }
+.filmInfo,.filmReview,.filmStats,.filmDate { grid-column:2; }
+.filmPoster { grid-column:1; grid-row:1 / span 5; width:82px; height:123px; object-fit:cover; border-radius:3px; background:#efefed; }
 .filmInfo { min-width:0; align-self:center; }
 .filmInfo>span { display:flex; align-items:center; gap:7px; flex-wrap:wrap; color:#888; font-size:9px; letter-spacing:.15px; }
 .filmTitle { display:block; max-width:100%; padding:0; border:0; background:none; text-align:left; font-size:16px; letter-spacing:-.5px; font-weight:650; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; margin:5px 0; }
@@ -61,7 +62,7 @@
 .filmStats>span { display:flex; align-items:center; gap:4px; padding:5px 7px; border-radius:5px; color:#656565; background:#f3f3f1; white-space:nowrap; font-size:10px; }
 .filmStats>span:first-child { color:#c34120; background:#fff1eb; font-weight:650; }
 .filmDate { display:flex; gap:7px; align-items:center; color:#777; font-size:10px; margin:4px 0 0; }
-.filmCardActions { grid-column:2; display:flex; align-items:center; gap:13px; border-top:1px solid #efefed; margin-top:9px; padding-top:8px; }
+.filmCardActions { grid-column:2; display:flex; flex-wrap:wrap; align-items:center; gap:6px 13px; border-top:1px solid #efefed; margin-top:9px; padding-top:8px; }
 .filmCardActions button { display:flex; align-items:center; gap:4px; border:0; padding:2px 0; background:none; color:#777; font-size:10px; }
 .filmCardActions button:hover { color:#222; }
 .historyRows { grid-column:1/-1; border-top:1px solid #e6e6e4; margin-top:11px; padding:4px 4px 0; }

@@ -1,3 +1,4 @@
+import type { FilmJournal } from "./journal-model";
 import type { ArchiveMovie } from "./archive-movies";
 
 export const accounts = [
@@ -23,7 +24,7 @@ export interface Recommendation { id: string; from: AccountId; to: AccountId[]; 
 export interface FilmGroup { id: string; name: string; members: AccountId[] }
 export interface FilmComment { id: string; scope: string; movieId: string; userId: AccountId; body: string; score: number | null; spoiler: boolean; createdAt: string }
 export interface SceneState {
-  version: 1; userId: AccountId; catalog?: ArchiveMovie[]; logs: FilmLog[]; watchlist: { userId: AccountId; movieId: string }[];
+  version: 1; userId: AccountId; journals?: Partial<Record<AccountId, Record<string, FilmJournal>>>; calendarCovers?: Partial<Record<AccountId, Record<string, string>>>; catalog?: ArchiveMovie[]; logs: FilmLog[]; watchlist: { userId: AccountId; movieId: string }[];
   friends: Friendship[]; recommendations: Recommendation[]; groups: FilmGroup[]; comments: FilmComment[];
 }
 export const STORAGE_KEY = "scenelog.archive.v1";

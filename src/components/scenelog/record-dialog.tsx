@@ -1,14 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { Bookmark, Check, Minus, Plus, Send } from "lucide-react";
+import { Bookmark, Check, Plus, Send, Music2, Frame, AlignLeft, ChevronDown } from "lucide-react";
 import type { ArchiveMovie as Movie } from "@/lib/archive-movies";
 import { accounts, friendIds, newId, themes, today, type FilmLog, type SceneState, type ThemeKey, type Tier } from "@/lib/scene-store";
 import { Discussion, Modal } from "./ui";
+import { RatingComparison } from "./rating-comparison";
+import { PrecisionRating } from "./precision-rating";
+import design from "./record-design.module.css";
 import styles from "./scenelog.module.css";
 
-export function RecordDialog({ movie, entry, initialDate, state, onSave, onClose, onWatchlist, onRecommend, onRewatch, onComment }: {
-  movie: Movie; entry?: FilmLog; initialDate?: string; state: SceneState; onSave: (log: FilmLog) => void;
+export function RecordDialog({ movie, movies, entry, initialDate, state, onSave, onClose, onWatchlist, onRecommend, onRewatch, onComment }: {
+  movie: Movie; movies: Movie[]; entry?: FilmLog; initialDate?: string; state: SceneState; onSave: (log: FilmLog) => void;
   onClose: () => void; onWatchlist: () => void; onRecommend: () => void; onRewatch: () => void;
   onComment: (body: string, spoiler: boolean) => void;
 }) {
@@ -22,7 +25,6 @@ export function RecordDialog({ movie, entry, initialDate, state, onSave, onClose
   const [tab, setTab] = useState("record");
   const inWatchlist = state.watchlist.some(w => w.userId === state.userId && w.movieId === movie.id);
   const history = state.logs.filter(l => l.userId === state.userId && l.movieId === movie.id);
-  function adjust(value: number) { setRating(Math.round(Math.min(5, Math.max(0, value)) * 10) / 10); }
   return <Modal title={movie.title} onClose={onClose} wide>
     <div className={styles.filmIntro}>
       {/* Use the original poster URL, shared with the Canvas PNG exporter. */}
@@ -34,14 +36,18 @@ export function RecordDialog({ movie, entry, initialDate, state, onSave, onClose
     </div>
     <div className={styles.tabs}><button className={tab === "record" ? styles.activeTab : ""} onClick={() => setTab("record")}>나의 기록</button><button className={tab === "talk" ? styles.activeTab : ""} onClick={() => setTab("talk")}>영화 이야기 <small>{state.comments.filter(c => c.scope === "public" && c.movieId === movie.id).length}</small></button></div>
     {tab === "record" ? <form className={styles.recordForm} onSubmit={e => { e.preventDefault(); onSave({ id: entry?.id ?? newId(), userId: state.userId, movieId: movie.id, rating: unrated ? null : rating, watchedOn: date, review: review.trim(), themes: themeScores, tier: tier || undefined, spoiler, createdAt: entry?.createdAt ?? new Date().toISOString() }); }}>
-      <div className={styles.between}><label className={styles.fieldLabel} htmlFor="rating-number">이 영화, 나에게는</label><label className={styles.checkLabel}><input type="checkbox" checked={unrated} onChange={e => setUnrated(e.target.checked)} />별점은 나중에</label></div>
-      <div className={`${styles.ratingControl} ${unrated ? styles.disabledRating : ""}`}><span className={styles.bigStar}>★</span><button type="button" aria-label="별점 0.1 낮추기" onClick={() => adjust(rating - .1)} disabled={unrated || rating <= 0}><Minus size={20} /></button><input id="rating-number" aria-label="내 별점" type="number" min="0" max="5" step="0.1" value={rating.toFixed(1)} disabled={unrated} onChange={e => { if (e.target.value !== "") adjust(Number(e.target.value)); }} /><span>/ 5.0</span><button type="button" aria-label="별점 0.1 높이기" onClick={() => adjust(rating + .1)} disabled={unrated || rating >= 5}><Plus size={20} /></button></div>
-      <input className={styles.range} aria-label="별점 슬라이더" type="range" min="0" max="5" step="0.1" value={rating} disabled={unrated} onChange={e => adjust(Number(e.target.value))} />
-      <div className={styles.rangeLabels}><span>0.0</span><span>당신의 취향을 0.1점까지.</span><span>5.0</span></div>
+      <div className={design.ratingHeading}><div><span>나의 감상</span><h3>이 영화, 어땠나요?</h3></div><label className={design.later}><input type="checkbox" checked={unrated} onChange={e => setUnrated(e.target.checked)} />별점은 나중에</label></div>
+      <PrecisionRating value={rating} onChange={setRating} disabled={unrated} />
+      <RatingComparison movies={movies} logs={state.logs} user={state.userId} movieId={movie.id} rating={unrated ? null : rating} />
       <div className={styles.twoFields}><label>관람일 <small>선택</small><input aria-label="관람일" type="date" value={date} max={today()} onChange={e => setDate(e.target.value)} /><small>기억나지 않으면 비워두세요.</small></label><label>나의 티어 <small>선택</small><select aria-label="나의 티어" value={tier} onChange={e => setTier(e.target.value as Tier | "")}><option value="">별점에 따라 자동 분류</option>{["S", "A", "B", "C", "D"].map(t => <option key={t}>{t}</option>)}</select></label></div>
       <label className={styles.reviewLabel}>기억하고 싶은 이야기 <small>선택</small><textarea aria-label="리뷰" value={review} onChange={e => setReview(e.target.value)} maxLength={5000} placeholder="어떤 장면이 오래 남았나요?" rows={4} /></label>
       <label className={styles.checkLabel}><input type="checkbox" checked={spoiler} onChange={e => setSpoiler(e.target.checked)} />리뷰에 스포일러가 있어요</label>
-      <details className={styles.themeDetails} open={undefined}><summary>테마별로 조금 더 자세히 <span>OST · 미장센 · 스토리</span></summary><p className={styles.muted}>원하는 항목만 기록하세요. 전체 별점과 별도로 저장돼요.</p>{themes.map(t => <div className={styles.themeInput} key={t.key}><label className={styles.checkLabel}><input type="checkbox" checked={themeScores[t.key] !== undefined} onChange={e => setThemeScores(scores => { const next = { ...scores }; if (e.target.checked) next[t.key] = 4; else delete next[t.key]; return next; })} />{t.label}</label><input aria-label={`${t.label} 별점`} type="range" min="0" max="5" step="0.1" disabled={themeScores[t.key] === undefined} value={themeScores[t.key] ?? 4} onChange={e => setThemeScores(scores => ({ ...scores, [t.key]: Number(e.target.value) }))} /><strong>{themeScores[t.key]?.toFixed(1) ?? "—"}</strong></div>)}</details>
+      <details className={design.themeDetails} open><summary>장면을 더 자세히 <small>선택</small><ChevronDown size={17} /></summary><p>음악, 화면, 이야기. 마음이 간 부분만 골라주세요. 전체 별점과 별도로 저장돼요.</p><div className={design.themeGrid}>{themes.map(t => {
+        const Icon = { ost: Music2, visual: Frame, story: AlignLeft }[t.key];
+        const enabled = themeScores[t.key] !== undefined;
+        const toggle = () => setThemeScores(scores => { const next = { ...scores }; if (next[t.key] === undefined) next[t.key] = 4; else delete next[t.key]; return next; });
+        return <div className={design.themeCard} data-active={enabled} key={t.key}><div className={design.themeTop}><Icon size={16} /><strong>{t.label}</strong><label><input type="checkbox" aria-label={t.label + " 평가 사용"} checked={enabled} onChange={toggle} /><span /></label></div>{enabled ? <PrecisionRating compact label={t.label + " 별점"} value={themeScores[t.key]!} onChange={value => setThemeScores(scores => ({ ...scores, [t.key]: value }))} /> : <button type="button" className={design.themeEmpty} onClick={toggle}><Plus size={14} />평가 남기기</button>}</div>;
+      })}</div></details>
       {history.length > 0 && <div className={styles.history}><div className={styles.between}><span>이 영화와의 기록 · {history.length}회</span>{entry && <button type="button" className={styles.textButton} onClick={onRewatch}>＋ 재관람 기록 추가</button>}</div>{history.map(log => <small key={log.id}>{log.watchedOn || "관람일 미정"} · ★ {log.rating?.toFixed(1) ?? "미정"}</small>)}</div>}
       <button className={styles.redButton} type="submit"><Check size={18} />{entry ? "기록 수정하기" : "나의 장면으로 저장"}</button>
     </form> : <Discussion comments={state.comments.filter(c => c.scope === "public" && c.movieId === movie.id)} onSubmit={onComment} />}

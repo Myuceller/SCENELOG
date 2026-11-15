@@ -39,13 +39,14 @@ function subscribe(listener: () => void) {
 
 function update(fn: (current: SceneState) => SceneState) {
   const current = getSnapshot().state;
-  if (!current) return;
+  if (!current) return false;
   const state = fn(current);
   let storageError = false;
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
   catch { storageError = true; }
   snapshot = { state, storageError };
   listeners.forEach(listener => listener());
+  return !storageError;
 }
 
 /** Server rendering stays deterministic; browser storage is the source of truth. */

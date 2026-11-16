@@ -1,0 +1,49 @@
+{
+  "name": "scenelog",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "node --conditions=react-server --import tsx --test tests/*.test.ts",
+    "db:check": "node --conditions=react-server --import tsx scripts/db.ts check",
+    "db:migrate": "node --conditions=react-server --import tsx scripts/db.ts migrate",
+    "db:setup": "npm run db:migrate && npm run db:check",
+    "db:start": "node --import tsx scripts/postgres-local.ts start",
+    "db:stop": "node --import tsx scripts/postgres-local.ts stop",
+    "db:status": "node --import tsx scripts/postgres-local.ts status",
+    "db:test": "node --conditions=react-server --import tsx --test tests/postgres-live.integration.ts",
+    "dev:web": "next dev",
+    "db:local:setup": "node --import tsx scripts/postgres-local.ts setup && npm run db:migrate && npm run db:check"
+  },
+  "dependencies": {
+    "@next/env": "^16.4.5",
+    "@supabase/supabase-js": "^2.119.0",
+    "client-only": "^0.0.1",
+    "lucide-react": "^1.69.0",
+    "mediabunny": "^1.65.2",
+    "next": "^16.4.5",
+    "pg": "^8.23.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "server-only": "^0.0.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.16",
+    "@types/node": "^22.20.5",
+    "@types/pg": "^8.23.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.4.5",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

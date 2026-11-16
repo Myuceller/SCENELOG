@@ -10,11 +10,11 @@ import styles from "./collection-views.module.css";
 import archive from "./scenelog.module.css";
 import { FilmJournals } from "./film-journal";
 
-export function StampCollection({ movies, logs, onOpen }: { movies: ArchiveMovie[]; logs: FilmLog[]; onOpen: (movie: ArchiveMovie) => void }) {
+export function StampCollection({ movies, logs, user, onOpen }: { user: string; movies: ArchiveMovie[]; logs: FilmLog[]; onOpen: (movie: ArchiveMovie) => void }) {
   const [filter, setFilter] = useState<"favorites" | "perfect" | "all">("favorites");
   const stamps = logs.filter(log => filter === "all" || (log.rating !== null && log.rating >= (filter === "perfect" ? 5 : 4)));
   return <>
-    <FilmJournals movies={movies} />
+    <FilmJournals movies={movies} logs={logs} user={user} />
     <div className={styles.intro}><div><span>THE FAVORITES EDIT</span><h2>좋아한 영화만, 한눈에.</h2><p>한 영화에 한 장의 우표. 최신 별점으로 나의 베스트를 모아요.</p></div><div className={styles.filters} aria-label="우표 모아보기">{([['favorites', '4.0점 이상'], ['perfect', '5.0점'], ['all', '모든 우표']] as const).map(([id, label]) => <button type="button" key={id} aria-pressed={filter === id} onClick={() => setFilter(id)}>{id === "favorites" && <Star size={12} />}{label}</button>)}</div></div>
     <div className={archive.stampGrid}>{stamps.map((log, i) => {
       const movie = movies.find(movie => movie.id === log.movieId);

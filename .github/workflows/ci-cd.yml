@@ -1,0 +1,93 @@
+name: CI / Vercel
+
+on:
+  pull_request:
+    branches: [main, dev]
+  push:
+    branches: [main, dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-vercel-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  checks:
+    name: Quality checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      # main is built with production environment variables in the deployment job.
+      - name: Build PR or development branch
+        if: github.ref != 'refs/heads/main'
+        run: npm run build
+
+  deploy:
+    name: Deploy production
+    needs: checks
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: scenelogenv
+      url: ${{ steps.deploy.outputs.url }}
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - name: Check Vercel connection settings
+        shell: bash
+        run: |
+          for name in VERCEL_ORG_ID VERCEL_PROJECT_ID VERCEL_TOKEN; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing GitHub Actions secret: $name"
+              exit 1
+            fi
+          done
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Install Vercel CLI
+        run: npm install --global vercel@65.16.0
+      - name: Pull production configuration
+        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+      - name: Check production environment variables
+        run: node --env-file=.vercel/.env.production.local scripts/check-deployment-env.mjs
+      - name: Build production artifacts
+        run: vercel build --prod --token="$VERCEL_TOKEN"
+      - name: Prevent deployment of an outdated main commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          latest_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')
+          if [ "$latest_sha" != "$GITHUB_SHA" ]; then
+            echo "::error::main has changed. Deploy the latest main workflow instead."
+            exit 1
+          fi
+      - name: Deploy production artifacts
+        id: deploy
+        shell: bash
+        run: |
+          deployment_url=$(vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN")
+          echo "url=$deployment_url" >> "$GITHUB_OUTPUT"
+          printf 'Production deployment: %s\nCommit: %s\n' "$deployment_url" "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"

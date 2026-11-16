@@ -6,6 +6,7 @@ import type { FilmLog } from "@/lib/scene-model";
 import { itemHeight, itemsForPage, placeOnSpread, spreadItems, type FilmJournal, type JournalItem } from "@/lib/journal-model";
 import { drawJournalPage, loadJournalMedia, TEXT_LINE_HEIGHT } from "@/lib/journal-render";
 import { journalFontFamily } from "@/lib/journal-fonts";
+import { newId } from "@/lib/id";
 import styles from "./film-journal.module.css";
 export type JournalTool = "select" | "pen" | "marker" | "hand";
 type Point = { x: number; y: number };
@@ -72,7 +73,7 @@ export function JournalSpread({ book, start, movies, logs, selected, tool, penCo
     const padX = penSize / 450, padY = penSize / 600;
     const minX = Math.max(0, Math.min(...points.map(p => p.x)) - padX), minY = Math.max(0, Math.min(...points.map(p => p.y)) - padY);
     const width = Math.max(.02, Math.min(2, Math.max(...points.map(p => p.x)) + padX) - minX), height = Math.max(.02, Math.min(1, Math.max(...points.map(p => p.y)) + padY) - minY);
-    return { id: latest.current?.id ?? crypto.randomUUID(), kind: "drawing", x: minX, y: minY, width, height, rotation: 0, color: penColor, penWidth: penSize, opacity: tool === "marker" ? .32 : 1, z: Math.max(0, ...items.map(item => item.z ?? 0)) + 1, points: points.map(p => ({ x: (p.x - minX) / width, y: (p.y - minY) / height })) };
+    return { id: latest.current?.id ?? newId(), kind: "drawing", x: minX, y: minY, width, height, rotation: 0, color: penColor, penWidth: penSize, opacity: tool === "marker" ? .32 : 1, z: Math.max(0, ...items.map(item => item.z ?? 0)) + 1, points: points.map(p => ({ x: (p.x - minX) / width, y: (p.y - minY) / height })) };
   }
   function finishEdit(save: boolean) {
     if (save && editingItem && editing && editing.text !== editingItem.text) onPlace({ ...editingItem, text: editing.text });

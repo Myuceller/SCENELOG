@@ -1,7 +1,7 @@
 "use client";
 import Image from "next/image";
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
-import { AlignCenter, AlignLeft, AlignRight, Check, ChevronLeft, ChevronRight, Crop, Film, Hand, Highlighter, ImagePlus, Layers, MousePointer2, Pencil, Plus, Redo2, RotateCcw, RotateCw, Save, Trash2, Type, Undo2, X, ZoomIn, ZoomOut } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
+import { AlignCenter, AlignLeft, AlignRight, BookOpen, Check, ChevronLeft, ChevronRight, Crop, Film, Hand, Highlighter, ImagePlus, Layers, Maximize2, MousePointer2, Pause, Pencil, Play, Plus, Redo2, RotateCcw, RotateCw, Save, Trash2, Type, Undo2, X, ZoomIn, ZoomOut } from "lucide-react";
 import type { ArchiveMovie } from "@/lib/archive-movies";
 import { newId, type FilmLog } from "@/lib/scene-store";
 import { addJournalItem, itemHeight, journalStampLogs, placeOnSpread, spreadItems, type FilmJournal, type JournalItem, type JournalPage, type JournalPaper, type JournalCover } from "@/lib/journal-model";
@@ -14,6 +14,11 @@ import { JournalCrop } from "./journal-crop";
 import { JournalExport } from "./journal-export";
 import styles from "./film-journal.module.css";
 
+const narrowQuery = "(max-width: 700px)";
+function subscribeNarrow(listener: () => void) {
+  const query = window.matchMedia(narrowQuery); query.addEventListener("change", listener);
+  return () => query.removeEventListener("change", listener);
+}
 function NumberField({ value, min, max, label, onChange }: { value: number; min: number; max: number; label: string; onChange: (value: number) => void }) {
   const [draft, setDraft] = useState(String(value));
   const [previousValue, setPreviousValue] = useState(value);
@@ -31,15 +36,20 @@ export function JournalStudio({ book, movies, logs, user, storageError, onChange
   const [tool, setTool] = useState<JournalTool>("select"), [zoom, setZoom] = useState(100), [fitWidth, setFitWidth] = useState(900);
   const [penColor, setPenColor] = useState("#e84b29"), [penSize, setPenSize] = useState(4), [cropOpen, setCropOpen] = useState(false), [photoBusy, setPhotoBusy] = useState(false);
   const [message, setMessage] = useState(""); const [historySize, setHistorySize] = useState({ past: 0, future: 0 });
+  const [present, setPresent] = useState(false), [playing, setPlaying] = useState(false), [chrome, setChrome] = useState(true);
+  const chromeTimer = useRef<ReturnType<typeof setTimeout> | null>(null), turnRef = useRef<(direction: number) => void>(() => {}), canNextRef = useRef(false);
   const past = useRef<FilmJournal[]>([]), future = useRef<FilmJournal[]>([]), current = useRef(book);
   const pan = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
   useLayoutEffect(() => { current.current = book; }, [book]);
   function refreshHistory() { setHistorySize({ past: past.current.length, future: future.current.length }); }
+  const narrow = useSyncExternalStore(subscribeNarrow, () => window.matchMedia(narrowQuery).matches, () => false);
   useEffect(() => { dialog.current?.showModal(); const element = dialog.current; return () => element?.close(); }, []);
   useEffect(() => {
     const element = viewport.current; if (!element) return;
-    const observer = new ResizeObserver(() => setFitWidth(Math.max(240, Math.min(element.clientWidth - 64, (element.clientHeight - 64) * 1.5)))); observer.observe(element); return () => observer.disconnect();
-  }, []);
+    const observer = new ResizeObserver(() => setFitWidth(narrow
+      ? Math.max(200, Math.min(element.clientWidth - 48, (element.clientHeight - 48) * .75))
+      : Math.max(240, Math.min(element.clientWidth - 64, (element.clientHeight - 64) * 1.5)))); observer.observe(element); return () => observer.disconnect();
+  }, [narrow]);
   const page = book.pages[activePage] ?? book.pages[start];
   const selectedPage = book.pages.find(p => p.items.some(item => item.id === selectedId));
   const selected = selectedPage?.items.find(item => item.id === selectedId);
@@ -75,7 +85,36 @@ export function JournalStudio({ book, movies, logs, user, storageError, onChange
     } catch (error) { setMessage(error instanceof Error ? error.message : "사진을 가져오지 못했어요."); }
     finally { setPhotoBusy(false); if (photoInput.current) photoInput.current.value = ""; }
   }
-  function turn(direction: number) { const to = start + direction * 2; if (to < 0 || to >= book.pages.length || flip) return; setSelectedId(null); setFlip({ from: start, to, direction }); }
+  const side = Math.min(1, Math.max(0, activePage - start)) as 0 | 1;
+  function turn(direction: number) {
+    if (narrow) {
+      const target = activePage + direction; if (target < 0 || target >= book.pages.length) return;
+      setSelectedId(null); setActivePage(target); setStart(Math.floor(target / 2) * 2); return;
+    }
+    const to = start + direction * 2; if (to < 0 || to >= book.pages.length || flip) return; setSelectedId(null); setFlip({ from: start, to, direction }); }
+  const canNext = narrow ? activePage + 1 < book.pages.length : start + 2 < book.pages.length;
+  useEffect(() => { turnRef.current = turn; canNextRef.current = canNext; });
+  function showChrome() { setChrome(true); if (chromeTimer.current) clearTimeout(chromeTimer.current); chromeTimer.current = setTimeout(() => setChrome(false), 2500); }
+  function startPresent() { setSelectedId(null); setTool("select"); setFlip(null); setStart(0); setActivePage(0); setOpening(true); setPlaying(false); setChrome(true); setPresent(true); }
+  function stopPresent() { setPlaying(false); setPresent(false); if (document.fullscreenElement) void document.exitFullscreen().catch(() => {}); }
+  function toggleFullscreen() { if (document.fullscreenElement) void document.exitFullscreen().catch(() => {}); else void dialog.current?.requestFullscreen?.().catch(() => {}); }
+  useEffect(() => {
+    if (!present) return;
+    chromeTimer.current = setTimeout(() => setChrome(false), 2500);
+    const keys = (event: KeyboardEvent) => {
+      if (event.key === "ArrowRight" || event.key === " " || event.key === "PageDown") { event.preventDefault(); turnRef.current(1); }
+      else if (event.key === "ArrowLeft" || event.key === "PageUp") { event.preventDefault(); turnRef.current(-1); }
+      else return;
+      showChrome();
+    };
+    window.addEventListener("keydown", keys);
+    return () => { window.removeEventListener("keydown", keys); if (chromeTimer.current) clearTimeout(chromeTimer.current); };
+  }, [present]);
+  useEffect(() => {
+    if (!present || !playing) return;
+    const id = setInterval(() => { if (canNextRef.current) turnRef.current(1); else setPlaying(false); }, 3600);
+    return () => clearInterval(id);
+  }, [present, playing]);
   function finishTurn() { if (flip) { setStart(flip.to); setActivePage(flip.to); setFlip(null); } }
   function addPages() { commit({ ...book, pages: [...book.pages, ...Array.from({ length: 2 }, (): JournalPage => ({ id: newId(), paper: "ivory", items: [] }))] }); setStart(book.pages.length); setActivePage(book.pages.length); setSelectedId(null); }
   function autoFill() {
@@ -90,25 +129,25 @@ export function JournalStudio({ book, movies, logs, user, storageError, onChange
   const visibleIndices = flip ? (flip.direction > 0 ? [flip.from, flip.to + 1] : [flip.to, flip.from + 1]) : [start, start + 1];
   const frontIndex = flip ? flip.direction > 0 ? flip.from + 1 : flip.from : 0, backIndex = flip ? flip.direction > 0 ? flip.to : flip.to + 1 : 0;
   function chooseTool(value: JournalTool) { setTool(value); if (value === "pen" || value === "marker") { setTab("draw"); setSelectedId(null); } }
-  return <dialog ref={dialog} className={styles.studio} aria-label={`${book.year}년 영화 다이어리 꾸미기`} onCancel={onClose} onPaste={event => {
+  return <dialog ref={dialog} className={styles.studio} data-present={present} data-chrome={present ? chrome : undefined} aria-label={`${book.year}년 영화 다이어리 ${present ? "감상" : "꾸미기"}`} onCancel={event => { if (present) { event.preventDefault(); stopPresent(); } else onClose(); }} onPointerMove={present ? showChrome : undefined} onPointerDown={present ? showChrome : undefined} onPaste={event => {
     const files = [...event.clipboardData.files].filter(file => file.type.startsWith("image/")); if (files.length) { event.preventDefault(); void addPhotos(files); }
   }}>
-    <header className={styles.studioHeader}><div><span>MY FILM JOURNAL / {book.year}</span><input aria-label="다이어리 제목" value={book.title} maxLength={36} disabled={busy} onChange={event => commit({ ...book, title: event.target.value })} /></div><span className={styles.saveState} role="status">{storageError ? "저장 공간을 확인해 주세요" : <><Check size={12} />자동 저장됨</>}</span><button className={styles.saveButton} disabled={busy || photoBusy} onClick={() => setMessage(onChange(current.current) ? "저장했어요. 이 브라우저에서 다시 열 수 있어요." : "저장하지 못했어요. 브라우저 저장 공간을 확인해 주세요.")}><Save size={15} />저장</button><button aria-label="다이어리 닫기" onClick={onClose}><X size={21} /></button></header>
+    <header className={styles.studioHeader}><div><span>MY FILM JOURNAL / {book.year}</span><input aria-label="다이어리 제목" value={book.title} maxLength={36} disabled={busy} onChange={event => commit({ ...book, title: event.target.value })} /></div><span className={styles.saveState} role="status">{storageError ? "저장 공간을 확인해 주세요" : <><Check size={12} />자동 저장됨</>}</span><button className={styles.presentButton} disabled={busy || photoBusy || !!flip} onClick={startPresent}><BookOpen size={15} />감상</button><button className={styles.saveButton} disabled={busy || photoBusy} onClick={() => setMessage(onChange(current.current) ? "저장했어요. 이 브라우저에서 다시 열 수 있어요." : "저장하지 못했어요. 브라우저 저장 공간을 확인해 주세요.")}><Save size={15} />저장</button><button aria-label="다이어리 닫기" onClick={onClose}><X size={21} /></button></header>
     <div className={styles.studioBody}>
       <div className={styles.workspace} data-busy={busy}>
         <div className={styles.bookTools}><div className={styles.toolModes}>{([["select", MousePointer2, "선택"], ["hand", Hand, "화면 이동"], ["pen", Pencil, "펜"], ["marker", Highlighter, "형광펜"]] as const).map(([value, Icon, label]) => <button key={value} aria-label={label} title={label} aria-pressed={tool === value} onClick={() => chooseTool(value)}><Icon size={16} /></button>)}</div><div><button aria-label="다이어리 실행 취소" disabled={!historySize.past || busy} onClick={undo}><Undo2 size={16} /></button><button aria-label="다이어리 다시 실행" disabled={!historySize.future || busy} onClick={redo}><Redo2 size={16} /></button><button onClick={addPages} disabled={busy}><Plus size={14} />페이지 추가</button></div></div>
         <div ref={viewport} className={styles.bookViewport} data-tool={tool} onPointerDown={event => {
           if (tool !== "hand" || event.button !== 0) return; const el = event.currentTarget; pan.current = { x: event.clientX, y: event.clientY, left: el.scrollLeft, top: el.scrollTop }; el.setPointerCapture(event.pointerId);
         }} onPointerMove={event => { if (pan.current) { event.currentTarget.scrollLeft = pan.current.left - event.clientX + pan.current.x; event.currentTarget.scrollTop = pan.current.top - event.clientY + pan.current.y; } }} onPointerUp={() => { pan.current = null; }} onPointerCancel={() => { pan.current = null; }}>
-          <div className={styles.bookStage} style={{ "--book-width": `${fitWidth * zoom / 100}px` } as CSSProperties}>
-            <div className={styles.spread} data-opening={opening}>
-              {flip ? visibleIndices.map(index => book.pages[index] && <JournalPageView key={index} page={book.pages[index]} number={index + 1} movies={movies} logs={logs} book={book} />) : <JournalSpread key={start} book={book} start={start} movies={movies} logs={logs} selected={selectedId} tool={tool} penColor={penColor} penSize={penSize} locked={busy} onPlace={place} onDelete={removeItem} onEditPhoto={() => setCropOpen(true)} onSelect={(id, side) => { setActivePage(start + side); setSelectedId(id); const kind = spreadItems(book, start).find(item => item.id === id)?.kind; if (kind === "text") setTab("text"); if (kind === "photo") setTab("photos"); }} />}
+          <div className={styles.bookStage} style={{ "--book-width": `${fitWidth * (present ? 100 : zoom) / 100}px` } as CSSProperties}>
+            <div className={styles.spread} data-opening={opening} data-narrow={narrow} onClick={present ? event => { const rect = event.currentTarget.getBoundingClientRect(); turn(event.clientX < rect.left + rect.width / 2 ? -1 : 1); } : undefined}>
+              {flip ? visibleIndices.map(index => book.pages[index] && <JournalPageView key={index} page={book.pages[index]} number={index + 1} movies={movies} logs={logs} book={book} />) : <JournalSpread key={start} side={narrow ? side : undefined} book={book} start={start} movies={movies} logs={logs} selected={present ? null : selectedId} tool={present ? "hand" : tool} penColor={penColor} penSize={penSize} locked={busy || present} onPlace={place} onDelete={removeItem} onEditPhoto={() => setCropOpen(true)} onSelect={(id, side) => { setActivePage(start + side); setSelectedId(id); const kind = spreadItems(book, start).find(item => item.id === id)?.kind; if (kind === "text") setTab("text"); if (kind === "photo") setTab("photos"); }} />}
               {flip && <div className={styles.turningLeaf} data-direction={flip.direction} onAnimationEnd={finishTurn}><div className={styles.leafFront}><JournalPageView page={book.pages[frontIndex]} number={frontIndex + 1} movies={movies} logs={logs} book={book} /></div><div className={styles.leafBack}><JournalPageView page={book.pages[backIndex]} number={backIndex + 1} movies={movies} logs={logs} book={book} /></div></div>}
               {opening && <div className={styles.openingLeaves} aria-hidden="true" onAnimationEnd={event => { if ((event.target as HTMLElement).dataset.last) setOpening(false); }}>{[0, 1, 2].map(index => <div key={index} data-last={index === 2 ? "true" : undefined} style={{ animationDelay: `${index * 90}ms` }}><small>SCENELOG</small><strong>{book.year}</strong><span>{book.title}</span></div>)}</div>}
             </div>
           </div>
         </div>
-        <div className={styles.stageBottom}><div className={styles.zoomTools}><button aria-label="다이어리 축소" disabled={zoom <= 50} onClick={() => setZoom(Math.max(50, zoom - 25))}><ZoomOut size={16} /></button><NumberField label="다이어리 확대 비율" value={zoom} min={50} max={300} onChange={setZoom} /><span>%</span><button aria-label="다이어리 확대" disabled={zoom >= 300} onClick={() => setZoom(Math.min(300, zoom + 25))}><ZoomIn size={16} /></button><button onClick={() => { setZoom(100); viewport.current?.scrollTo(0, 0); }}>화면 맞춤</button></div><div className={styles.pageNav}><button aria-label="이전 다이어리 페이지" disabled={start === 0 || !!flip || busy} onClick={() => turn(-1)}><ChevronLeft size={18} /></button><span>{start + 1}–{start + 2}<small>/ {book.pages.length}</small></span><button aria-label="다음 다이어리 페이지" disabled={start + 2 >= book.pages.length || !!flip || busy} onClick={() => turn(1)}><ChevronRight size={18} /></button></div></div>
+        <div className={styles.stageBottom}><div className={styles.zoomTools}><button aria-label="다이어리 축소" disabled={zoom <= 50} onClick={() => setZoom(Math.max(50, zoom - 25))}><ZoomOut size={16} /></button><NumberField label="다이어리 확대 비율" value={zoom} min={50} max={300} onChange={setZoom} /><span>%</span><button aria-label="다이어리 확대" disabled={zoom >= 300} onClick={() => setZoom(Math.min(300, zoom + 25))}><ZoomIn size={16} /></button><button onClick={() => { setZoom(100); viewport.current?.scrollTo(0, 0); }}>화면 맞춤</button></div><div className={styles.pageNav}><button aria-label="이전 다이어리 페이지" disabled={(narrow ? activePage === 0 : start === 0) || !!flip || busy} onClick={() => turn(-1)}><ChevronLeft size={18} /></button><span>{narrow ? activePage + 1 : `${start + 1}–${start + 2}`}<small>/ {book.pages.length}</small></span><button aria-label="다음 다이어리 페이지" disabled={(narrow ? activePage + 1 >= book.pages.length : start + 2 >= book.pages.length) || !!flip || busy} onClick={() => turn(1)}><ChevronRight size={18} /></button></div></div>
         <p className={styles.stageHint}>모서리를 잡아 크기 조절 · 글자는 더블클릭 · 두 페이지 사이로 자유롭게 이동 · 확대 후 손 도구로 화면 이동</p>
       </div>
       <aside className={styles.editor}>
@@ -127,6 +166,16 @@ export function JournalStudio({ book, movies, logs, user, storageError, onChange
         </div>
       </aside>
     </div>
+    {present && <div className={styles.presentUi} data-visible={chrome}>
+      <button className={styles.presentExit} aria-label="감상 모드 나가기" onClick={stopPresent}><X size={20} /></button>
+      <div className={styles.presentBar} role="toolbar" aria-label="감상 컨트롤">
+        <button aria-label="이전 다이어리 페이지" disabled={(narrow ? activePage === 0 : start === 0) || !!flip} onClick={() => turn(-1)}><ChevronLeft size={20} /></button>
+        <span>{narrow ? activePage + 1 : `${start + 1}–${start + 2}`}<small>/ {book.pages.length}</small></span>
+        <button aria-label="다음 다이어리 페이지" disabled={!canNext || !!flip} onClick={() => turn(1)}><ChevronRight size={20} /></button>
+        <button aria-label={playing ? "자동 넘기기 멈춤" : "자동 넘기기"} aria-pressed={playing} onClick={() => setPlaying(!playing)}>{playing ? <Pause size={17} /> : <Play size={17} />}</button>
+        <button aria-label="전체 화면" onClick={toggleFullscreen}><Maximize2 size={17} /></button>
+      </div>
+    </div>}
     {cropOpen && selected?.kind === "photo" && <JournalCrop key={selected.id} item={selected} onApply={patchItem} onClose={() => setCropOpen(false)} />}
   </dialog>;
 }

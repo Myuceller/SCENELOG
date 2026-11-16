@@ -29,7 +29,7 @@ export interface SceneState {
 }
 export const STORAGE_KEY = "scenelog.archive.v1";
 export function today() { return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()); }
-export function newId() { return crypto.randomUUID(); }
+export { newId } from "./id";
 export function ratingToTier(rating: number | null): Tier { return rating !== null && rating >= 4.5 ? "S" : rating !== null && rating >= 4 ? "A" : rating !== null && rating >= 3 ? "B" : rating !== null && rating >= 2 ? "C" : "D"; }
 export function latestLogs(logs: FilmLog[], userId: AccountId): FilmLog[] {
   const map = new Map<string, FilmLog>();

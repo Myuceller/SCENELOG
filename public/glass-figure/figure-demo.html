@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Glass Figure Demo</title>
+<style>
+  html, body { height: 100%; margin: 0; background: #ebe8fb; font-family: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif; }
+  #figure { width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<!-- Everything the figure needs is in glass-figure.js. Give the container a size and mount it. -->
+<div id="figure"></div>
+<script src="glass-figure.js"></script>
+<script>
+  var figure = mountGlassFigure(document.getElementById('figure'), {
+    accent: '#ff8a1f',
+    // Replace with the app's real records. `lines[0]` is drawn in the accent colour.
+    cards: [
+      { label: 'Watched · 2024.03.14', title: 'Paper Lanterns', lines: ['★★★★☆', 'Drama · 112 min', 'Rainy Sunday rewatch'] },
+      { label: 'Watched · 2024.05.02', title: 'Night Ferry', lines: ['★★★★★', 'Thriller · 98 min', 'Saw it twice in a week'] },
+      { label: 'Watched · 2024.06.21', title: 'The Quiet Orchard', lines: ['★★★☆☆', 'Family · 104 min', 'Slow, but the ending lands'] },
+      { label: 'Watched · 2024.08.09', title: 'Salt & Neon', lines: ['★★★★☆', 'Romance · 121 min', 'Best soundtrack this year'] },
+      { label: 'Watched · 2024.09.30', title: 'Low Tide', lines: ['★★★★★', 'Mystery · 109 min', 'Did not see the twist coming'] },
+      { label: 'Watched · 2024.11.17', title: 'Glass Summer', lines: ['★★★☆☆', 'Coming of age · 95 min', 'Pretty, a little thin'] },
+      { label: 'Watched · 2025.01.05', title: 'Seventeen Stairs', lines: ['★★★★☆', 'Horror · 91 min', 'Watched with the lights on'] },
+      { label: 'Watched · 2025.02.22', title: 'After the Parade', lines: ['★★★★★', 'Comedy · 102 min', 'Laughed the whole way home'] },
+      { label: 'Watched · 2025.04.11', title: 'North of Morning', lines: ['★★★★☆', 'Road movie · 117 min', 'Made me want to drive north'] },
+      { label: 'Watched · 2025.06.03', title: 'Small Hours', lines: ['★★★☆☆', 'Documentary · 84 min', 'Quiet and honest'] }
+    ],
+    onCardClick: function (index) { console.log('card', index); },
+    onToggle: function (isOpen) { console.log('cards open:', isOpen); }
+  });
+</script>
+</body>
+</html>

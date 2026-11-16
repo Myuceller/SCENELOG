@@ -1,17 +1,19 @@
 "use client";
 import { useEffect, useRef, useState, type PointerEvent } from "react";
+import { Trash2 } from "lucide-react";
 import type { ArchiveMovie } from "@/lib/archive-movies";
 import type { FilmLog } from "@/lib/scene-model";
 import { itemHeight, itemsForPage, placeOnSpread, spreadItems, type FilmJournal, type JournalItem } from "@/lib/journal-model";
-import { drawJournalPage, loadJournalMedia } from "@/lib/journal-render";
+import { drawJournalPage, loadJournalMedia, TEXT_LINE_HEIGHT } from "@/lib/journal-render";
 import { journalFontFamily } from "@/lib/journal-fonts";
+import { newId } from "@/lib/id";
 import styles from "./film-journal.module.css";
 export type JournalTool = "select" | "pen" | "marker" | "hand";
 type Point = { x: number; y: number };
 const handles = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
 const handleNames = ["왼쪽 위", "위", "오른쪽 위", "오른쪽", "오른쪽 아래", "아래", "왼쪽 아래", "왼쪽"];
-export function JournalSpread({ book, start, movies, logs, selected, tool, penColor, penSize, onPlace, onSelect, onDelete, onEditPhoto, locked }: {
-  book: FilmJournal; start: number; movies: ArchiveMovie[]; logs: FilmLog[]; selected: string | null; tool: JournalTool; penColor: string; penSize: number; locked?: boolean;
+export function JournalSpread({ book, start, movies, logs, selected, tool, penColor, penSize, onPlace, onSelect, onDelete, onEditPhoto, locked, side }: {
+  book: FilmJournal; start: number; movies: ArchiveMovie[]; logs: FilmLog[]; selected: string | null; tool: JournalTool; penColor: string; penSize: number; locked?: boolean; side?: 0 | 1;
   onPlace: (item: JournalItem) => void; onSelect: (id: string | null, side: number) => void; onDelete: (id: string) => void; onEditPhoto: () => void;
 }) {
   const surface = useRef<HTMLDivElement>(null), canvas = useRef<HTMLCanvasElement>(null);
@@ -71,13 +73,13 @@ export function JournalSpread({ book, start, movies, logs, selected, tool, penCo
     const padX = penSize / 450, padY = penSize / 600;
     const minX = Math.max(0, Math.min(...points.map(p => p.x)) - padX), minY = Math.max(0, Math.min(...points.map(p => p.y)) - padY);
     const width = Math.max(.02, Math.min(2, Math.max(...points.map(p => p.x)) + padX) - minX), height = Math.max(.02, Math.min(1, Math.max(...points.map(p => p.y)) + padY) - minY);
-    return { id: latest.current?.id ?? crypto.randomUUID(), kind: "drawing", x: minX, y: minY, width, height, rotation: 0, color: penColor, penWidth: penSize, opacity: tool === "marker" ? .32 : 1, z: Math.max(0, ...items.map(item => item.z ?? 0)) + 1, points: points.map(p => ({ x: (p.x - minX) / width, y: (p.y - minY) / height })) };
+    return { id: latest.current?.id ?? newId(), kind: "drawing", x: minX, y: minY, width, height, rotation: 0, color: penColor, penWidth: penSize, opacity: tool === "marker" ? .32 : 1, z: Math.max(0, ...items.map(item => item.z ?? 0)) + 1, points: points.map(p => ({ x: (p.x - minX) / width, y: (p.y - minY) / height })) };
   }
   function finishEdit(save: boolean) {
     if (save && editingItem && editing && editing.text !== editingItem.text) onPlace({ ...editingItem, text: editing.text });
     setEditing(null);
   }
-  return <div ref={surface} className={styles.spreadEditor} data-tool={tool}>
+  return <div ref={surface} className={styles.spreadEditor} data-tool={tool} data-single={side === undefined ? undefined : side} style={side === 1 ? { marginLeft: "-100%" } : undefined}>
     <canvas ref={canvas} width={1800} height={1200} aria-label={`${start + 1}–${start + 2}쪽 다이어리 편집 영역`} />
     {!locked && tool === "select" && items.map(original => {
       const item = draft?.id === original.id ? draft : original;
@@ -93,6 +95,7 @@ export function JournalSpread({ book, start, movies, logs, selected, tool, penCo
           if (event.key === "Delete" || event.key === "Backspace") { event.preventDefault(); onDelete(item.id); }
           if (event.key === "Enter" && item.kind === "text") { event.preventDefault(); setEditing({ id: item.id, text: item.text ?? "" }); }
         }}>
+        {selected === item.id && !editing && !draft && <button type="button" tabIndex={-1} aria-label="페이지에서 선택한 조각 삭제" title="삭제" className={styles.deleteHandle} data-below={item.y < .08 ? "true" : undefined} onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onDelete(item.id); }}><Trash2 size={14} /></button>}
         {selected === item.id && !editing && handles.map((handle, index) => <button key={handle} type="button" tabIndex={-1} aria-label={`${handleNames[index]} 크기 조절`} className={styles.resizeHandle} data-handle={handle} onPointerDown={event => begin(event, item, handle)} onPointerMove={event => { event.stopPropagation(); move(event); }} onPointerUp={event => { event.stopPropagation(); stop(); }} />)}
       </div>;
     })}
@@ -107,7 +110,7 @@ export function JournalSpread({ book, start, movies, logs, selected, tool, penCo
       const last = stroke.current[stroke.current.length - 1]; if (Math.hypot((p.x - last.x) * 450, (p.y - last.y) * 600) < 1.2) return;
       stroke.current.push(p); latest.current = strokeItem(stroke.current); setDraft(latest.current);
     }} onPointerUp={() => { if (stroke.current && latest.current) onPlace(latest.current); stroke.current = null; latest.current = null; setDraft(null); }} onPointerCancel={() => { stroke.current = null; latest.current = null; setDraft(null); }} />}
-    {editing && editingItem && <textarea key={editing.id} autoFocus aria-label="페이지에서 문장 편집" className={styles.inlineText} value={editing.text} maxLength={3000} style={{ left: `${editingItem.x * 50}%`, top: `${editingItem.y * 100}%`, width: `${editingItem.width * 50}%`, height: `${itemHeight(editingItem) * 100}%`, transform: `rotate(${editingItem.rotation}deg)`, fontFamily: journalFontFamily(editingItem.font), fontSize: `${(editingItem.fontSize ?? 25) / 900 * 100}cqw`, color: editingItem.color, textAlign: editingItem.align ?? "left" }} onChange={event => setEditing({ ...editing, text: event.target.value })} onBlur={() => finishEdit(true)} onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); finishEdit(false); } if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) finishEdit(true); }} />}
+    {editing && editingItem && <textarea key={editing.id} autoFocus aria-label="페이지에서 문장 편집" className={styles.inlineText} value={editing.text} maxLength={3000} style={{ left: `${editingItem.x * 50}%`, top: `${editingItem.y * 100}%`, width: `${editingItem.width * 50}%`, height: `${itemHeight(editingItem) * 100}%`, transform: `rotate(${editingItem.rotation}deg)`, fontFamily: journalFontFamily(editingItem.font), fontSize: `${(editingItem.fontSize ?? 25) / 900 * 100}cqw`, lineHeight: TEXT_LINE_HEIGHT, color: editingItem.color, textAlign: editingItem.align ?? "left" }} onChange={event => setEditing({ ...editing, text: event.target.value })} onBlur={() => finishEdit(true)} onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); finishEdit(false); } if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) finishEdit(true); }} />}
     {error && <p className={styles.pageError} role="alert">{error}</p>}
   </div>;
 }

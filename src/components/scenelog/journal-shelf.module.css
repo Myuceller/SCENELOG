@@ -1,0 +1,35 @@
+.wrap { max-width:760px; margin:4px auto 8px; }
+.shelf { position:relative; height:calc(var(--H) + 96px); perspective:1800px; touch-action:pan-y; user-select:none; -webkit-user-select:none; cursor:grab; overflow:hidden; border-radius:12px; outline-offset:2px; }
+.shelf:active { cursor:grabbing; }
+.shelf::after { content:""; position:absolute; left:0; right:0; top:calc(50% + var(--H) / 2 + 8px); height:1px; background:#d6d2c6; pointer-events:none; }
+.stage { position:absolute; left:50%; top:50%; width:0; height:0; transform-style:preserve-3d; }
+.tape { position:absolute; left:0; top:0; width:0; height:0; transform-style:preserve-3d; will-change:transform; cursor:pointer; }
+.sp,.cv { position:absolute; top:calc(var(--H) / -2); height:var(--H); backface-visibility:hidden; -webkit-backface-visibility:hidden; background:var(--cover,#ece6d9); color:#fff3d9; overflow:hidden; }
+.sp::before,.cv::before { content:""; position:absolute; inset:0; opacity:.16; background:repeating-linear-gradient(0deg,transparent 0 2px,#ffffff55 2px 2.5px); pointer-events:none; }
+.sp::after { content:""; position:absolute; inset:0; background:#000; opacity:var(--shade-sp,0); pointer-events:none; }
+.cv::after { content:""; position:absolute; inset:0; background:#000; opacity:var(--shade-cv,.5); pointer-events:none; }
+.sp { left:calc(var(--ws) / -2); width:var(--ws); transform:translateZ(calc(var(--d) / 2)); border-radius:3px 2px 2px 3px; display:flex; flex-direction:column; align-items:center; justify-content:space-between; padding:calc(var(--H) * .06) 0; box-shadow:inset 3px 0 6px #0004; }
+.spYear { font:calc(var(--H) * .06) Georgia,serif; letter-spacing:-.02em; }
+.spTitle { writing-mode:vertical-rl; flex:1; min-height:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; letter-spacing:.1em; font-size:max(13px,calc(var(--H) * .052)); margin:calc(var(--H) * .04) 0; }
+.spMark { font-size:max(12px,calc(var(--H) * .04)); letter-spacing:.1em; opacity:.8; }
+.cv { left:calc(var(--d) / -2); width:var(--d); transform:rotateY(90deg) translateZ(calc(var(--ws) / 2)); border-radius:3px 10px 10px 3px; display:flex; flex-direction:column; padding:calc(var(--H) * .09) calc(var(--d) * .1) 0; box-shadow:inset 8px 0 12px #0004,0 30px 60px -28px rgba(20,16,10,.55); }
+.cvLabel { font-size:max(12px,calc(var(--H) * .036)); line-height:1.7; letter-spacing:.1em; }
+.cvYear { font:calc(var(--H) * .2) Georgia,serif; letter-spacing:-.03em; margin:calc(var(--H) * .09) 0 calc(var(--H) * .02); }
+.cvTitle { font-size:max(13px,calc(var(--H) * .045)); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.cvFoot { position:absolute; left:0; right:0; bottom:0; display:flex; align-items:center; gap:8px; padding:calc(var(--H) * .06) calc(var(--d) * .1); border-top:1px solid #ffffff25; background:#ffffff0b; font-size:max(12px,calc(var(--H) * .036)); letter-spacing:.1em; }
+.tape[data-empty=true] .sp,.tape[data-empty=true] .cv { background:#ece6d9; color:#7d7564; border:1px dashed #b5ab93; box-shadow:none; }
+.tape[data-empty=true] .sp::before,.tape[data-empty=true] .cv::before { display:none; }
+.cvPlus { display:grid; place-items:center; width:calc(var(--d) * .22); aspect-ratio:1; border:1px dashed #b5ab93; border-radius:50%; margin-top:calc(var(--H) * .02); }
+.caption { overflow:hidden; text-align:center; margin-top:10px; }
+.captionIn { display:flex; flex-direction:column; align-items:center; gap:4px; animation:rise .6s cubic-bezier(.2,.8,.2,1) both; }
+.captionIn strong { font:600 var(--fs-20) Georgia,serif; letter-spacing:-.01em; }
+.captionIn span { font-size:var(--fs-14); color:#444; }
+.captionIn small { font-size:var(--fs-12); letter-spacing:.1em; color:#888; }
+.controls { display:flex; align-items:center; justify-content:center; gap:12px; margin:16px 0 6px; }
+.controls button { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:48px; border:1px solid #dcdcd6; border-radius:12px; background:#fff; color:#222; font-size:var(--fs-14); }
+.controls button[aria-label] { width:48px; }
+.controls button:disabled { opacity:.35; }
+.controls .primary { padding:0 24px; background:#222; color:#fff; border-color:#222; font-weight:600; }
+.hint { text-align:center; color:#999; font-size:var(--fs-12); margin:10px 0 0; }
+@keyframes rise { from { transform:translateY(105%); } to { transform:none; } }
+@media(prefers-reduced-motion:reduce) { .captionIn { animation:none; } }

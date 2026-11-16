@@ -1,5 +1,11 @@
 @font-face { font-family:"Pretendard"; src:url("/fonts/PretendardVariable.woff2") format("woff2"); font-weight:100 900; font-style:normal; font-display:swap; }
 :root { --background:#fafafa; --foreground:#161616; --surface:#ffffff; --accent:#ff4b21; --muted:#747474; --border:#ddddda; }
+:root { --fs-6:6px; --fs-7:7px; --fs-8:8px; --fs-9:9px; --fs-10:10px; --fs-11:11px; --fs-12:12px; --fs-13:13px; --fs-14:14px; --fs-15:15px; --fs-16:16px; --fs-17:17px; --fs-18:18px; --fs-19:19px; --fs-20:20px; }
+@media(max-width:760px) {
+  :root { --fs-6:13px; --fs-7:13px; --fs-8:13px; --fs-9:13px; --fs-10:13px; --fs-11:14px; --fs-12:15px; --fs-13:16px; --fs-14:17px; --fs-15:17px; --fs-16:18px; --fs-17:19px; --fs-18:20px; --fs-19:21px; --fs-20:22px; }
+  /* 16px+ fields stop iOS Safari from zooming the page on focus */
+  input:not([type=range],[type=checkbox],[type=radio],[type=color],[type=file]), select, textarea { font-size:16px !important; }
+}
 * { box-sizing:border-box; }
 html { scroll-behavior:smooth; }
 body { margin:0; color:var(--foreground); background:var(--background); font-family:"Pretendard",Arial,"Apple SD Gothic Neo","Malgun Gothic",sans-serif; -webkit-font-smoothing:antialiased; }

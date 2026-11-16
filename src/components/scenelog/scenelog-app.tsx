@@ -3,7 +3,7 @@
 import Image from "next/image";
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { ArrowRight, ArrowUpRight, Bookmark, BookOpen, Check, ChevronLeft, ChevronRight, List, Plus, Printer, Search, SlidersHorizontal, Star } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Bookmark, BookOpen, CalendarDays, ChartPie, Check, ChevronLeft, ChevronRight, Compass, LibraryBig, List, Users, Plus, Printer, Search, SlidersHorizontal, Star } from "lucide-react";
 import type { ArchiveMovie as Movie } from "@/lib/archive-movies";
 import { accounts, latestLogs, newId, ratingToTier, themes, today, useSceneStore, type AccountId, type FilmLog, type ThemeKey, type Tier } from "@/lib/scene-store";
 import { getPrintItems } from "@/lib/print-sheet";
@@ -23,10 +23,9 @@ import { CatalogMode, CatalogFeedback, CatalogPagination, type LibraryMode } fro
 import styles from "./scenelog.module.css";
 
 const views = [
-  { id: "discover", label: "발견" }, { id: "diary", label: "관람일지" },
-  { id: "collection", label: "컬렉션" }, { id: "themes", label: "테마별 취향" }, { id: "friends", label: "친구들" },
-] as const;
-type View = (typeof views)[number]["id"] | "print";
+  { id: "discover", label: "발견", short: "발견", icon: Compass }, { id: "diary", label: "관람일지", short: "일지", icon: CalendarDays },
+  { id: "collection", label: "컬렉션", short: "컬렉션", icon: LibraryBig }, { id: "themes", label: "테마별 취향", short: "취향", icon: ChartPie }, { id: "friends", label: "친구들", short: "친구", icon: Users },
+] as const;type View = (typeof views)[number]["id"] | "print";
 function subscribeView(listener: () => void) {
   window.addEventListener("hashchange", listener);
   return () => window.removeEventListener("hashchange", listener);
@@ -39,8 +38,7 @@ const tiers: Tier[] = ["S", "A", "B", "C", "D"];
 
 export function SceneLogApp({ movies: initialMovies }: { movies: MovieDetail[] }) {
   const { state, update, storageError } = useSceneStore();
-  const view = useSyncExternalStore(subscribeView, readView, () => "discover" as View);
-  const [query, setQuery] = useState("");
+  const view = useSyncExternalStore(subscribeView, readView, () => "discover" as View);  const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [toast, setToast] = useState("");
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -123,7 +121,7 @@ export function SceneLogApp({ movies: initialMovies }: { movies: MovieDetail[] }
     <div className={styles.topLine}><span>A PERSONAL FILM ARCHIVE.</span><span>COLLECT SCENES. KEEP YOUR POINT OF VIEW.</span><span>LOCAL PREVIEW <i /></span></div>
     <header className={styles.header}><div className={styles.headerInner}>
       <a href="#discover" className={styles.logo} onClick={e => { e.preventDefault(); navigate("discover"); }} aria-label="SceneLog 홈"><span className={styles.logoMark}><i /><i /><i /><i /></span>SceneLog<span className={styles.registered}>®</span></a>
-      <nav className={styles.nav} aria-label="주 메뉴">{views.map(v => <a href={`#${v.id}`} key={v.id} aria-current={view === v.id ? "page" : undefined} className={view === v.id ? styles.activeNav : ""} onClick={e => { e.preventDefault(); navigate(v.id); }}>{v.label}</a>)}</nav>
+      <nav className={styles.nav} aria-label="주 메뉴">{views.map(v => <a href={`#${v.id}`} key={v.id} aria-label={v.label} aria-current={view === v.id ? "page" : undefined} className={view === v.id ? styles.activeNav : ""} onClick={e => { e.preventDefault(); navigate(v.id); }}><v.icon size={22} strokeWidth={1.8} aria-hidden="true" /><span className={styles.navFull}>{v.label}</span><span className={styles.navShort} aria-hidden="true">{v.short}</span></a>)}</nav>
       <div className={styles.headerActions}><button className={`${styles.printNav} ${view === "print" ? styles.activePrintNav : ""}`} aria-label="프린트룸" onClick={() => navigate("print")}><Printer size={17} /><span>프린트룸</span></button><label className={styles.accountControl}><Avatar id={state.userId} small /><select aria-label="체험 계정 전환" value={state.userId} onChange={e => { const userId = e.target.value as AccountId; update(s => ({ ...s, userId })); setSelected(null); setRecommendMovie(null); setSelectedDay(null); notify(`${userId} 예시 계정으로 전환했어요.`); }}>{accounts.map(a => <option value={a.id} key={a.id}>{a.name}</option>)}</select></label></div>
     </div></header>
     {storageError && <p className={styles.storageWarning} role="alert">브라우저 저장소에 접근할 수 없어 새로고침 시 기록이 사라질 수 있어요.</p>}

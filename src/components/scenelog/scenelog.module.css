@@ -462,3 +462,31 @@
 .footer { border-color:#e4e4e4; }
 @media(max-width:900px) { .headerInner { padding:17px 24px 0; }.nav { border-top:0; }.nav a { padding-block:15px; }.dialog { padding:25px; } }
 @media(max-width:600px) { .headerInner { padding:16px 17px 0; }.logo { font-size:27px; }.nav a { font-size:var(--fs-12); }.pageHeading h1 { font-size:30px; }.monthTitle>strong { font-size:45px; }.monthTitle>span { font-size:var(--fs-8); }.dialog { padding:22px 20px; border-radius:22px 22px 0 0; }.posterButton { border-radius:9px; }.sectionHeading h2 { font-size:23px; } }
+
+/* DIRECTION A · header + navigation: pill tabs in the header, floating bottom tab bar on small screens. */
+.app .header { border-bottom:0; background:transparent; }
+.app .headerInner { padding:18px 44px; flex-wrap:nowrap; }
+.app .logo { font-size:23px; font-weight:800; letter-spacing:-.6px; }
+.app .logoMark { width:26px; height:26px; border-radius:8px; padding:5px; gap:3px; margin-right:9px; transform:none; }
+.app .headerActions { gap:8px; margin-left:0; }
+.app .printNav { width:42px; height:42px; justify-content:center; padding:0; border-radius:50%; background:#fff; box-shadow:0 2px 8px #0000000f; }
+.app .printNav>span { display:none; }
+.app .printNav.activePrintNav { background:#111; color:#fff; }
+.app .accountControl { height:42px; padding:4px 10px 4px 4px; border-left:0; border-radius:999px; background:#fff; box-shadow:0 2px 8px #0000000f; }
+.app .nav { order:0; width:auto; gap:4px; padding:4px; border:0; border-radius:999px; background:#ededf0; overflow:visible; }
+.app .nav a { display:flex; align-items:center; gap:7px; padding:10px 16px; border-radius:999px; font-size:var(--fs-14); font-weight:600; color:#77777f; }
+.app .nav a:hover { color:#111; }
+.app .nav .activeNav { background:#fff; color:#111; box-shadow:0 1px 4px #0000001a; }
+.app .activeNav::after { display:none; }
+.app .nav svg,.navShort { display:none; }
+@media(max-width:900px) {
+  .app .headerInner { padding:14px 20px; }
+  .app { padding-bottom:calc(98px + env(safe-area-inset-bottom)); }
+  .app .nav { position:fixed; z-index:40; left:14px; right:14px; bottom:calc(12px + env(safe-area-inset-bottom)); justify-content:space-between; gap:0; padding:7px; background:#fffffff5; backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px); box-shadow:0 10px 30px #0000001f; }
+  .app .nav a { flex:1; min-width:0; flex-direction:column; gap:3px; padding:8px 0; font-size:13px; color:#9a9aa2; }
+  .app .nav svg { display:block; }
+  .app .nav .activeNav { background:#111; color:#fff; box-shadow:none; }
+  .app .navFull { display:none; }
+  .app .navShort { display:inline; }
+  .app .toast { bottom:calc(104px + env(safe-area-inset-bottom)); }
+}

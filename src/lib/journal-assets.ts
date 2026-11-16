@@ -1,4 +1,5 @@
 import type { JournalItem } from "./journal-model";
+import { newId } from "./id";
 
 function database(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -32,7 +33,7 @@ export async function importJournalPhoto(file: File) {
   const canvas = document.createElement("canvas"); canvas.width = Math.round(image.width * ratio); canvas.height = Math.round(image.height * ratio);
   canvas.getContext("2d")!.drawImage(image, 0, 0, canvas.width, canvas.height);
   const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob(result => result ? resolve(result) : reject(new Error("사진을 저장하지 못했어요.")), file.type === "image/jpeg" ? "image/jpeg" : "image/webp", .9));
-  const id = crypto.randomUUID(), db = await database();
+  const id = newId(), db = await database();
   await new Promise<void>((resolve, reject) => {
     const transaction = db.transaction("photos", "readwrite"); transaction.objectStore("photos").put(blob, id);
     transaction.oncomplete = () => { db.close(); resolve(); };

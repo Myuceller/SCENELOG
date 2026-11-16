@@ -1,4 +1,5 @@
 import type { FilmLog, AccountId } from "./scene-model";
+import { newId } from "./id";
 
 export type JournalPaper = "ivory" | "grid" | "white";
 export type JournalCover = "ink" | "orange" | "blue";
@@ -18,7 +19,7 @@ export const PAGE_HEIGHT = 600;
 export const coverColors: Record<JournalCover, string> = { ink: "#292b29", orange: "#e84b29", blue: "#344463" };
 export const paperColors: Record<JournalPaper, string> = { ivory: "#f1ecdf", grid: "#f5f2e9", white: "#faf9f5" };
 
-export function createJournal(year: number, id: () => string = () => crypto.randomUUID()): FilmJournal {
+export function createJournal(year: number, id: () => string = newId): FilmJournal {
   return { year, title: "나의 영화 다이어리", cover: "ink", pages: Array.from({ length: 4 }, () => ({ id: id(), paper: "ivory", items: [] })), updatedAt: new Date().toISOString() };
 }
 export function journalStampLogs(logs: FilmLog[], user: AccountId, year?: number) {

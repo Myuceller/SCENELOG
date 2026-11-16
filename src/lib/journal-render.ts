@@ -23,6 +23,7 @@ export async function loadJournalPosters(movies: ArchiveMovie[], movieIds: strin
     return [id, await posterCache.get(movie.poster)!] as const;
   })));
 }
+export const TEXT_LINE_HEIGHT = 1.38;
 const sans = '"Pretendard", Arial, sans-serif';
 const serif = 'Georgia, "Batang", serif';
 export async function loadJournalMedia(movies: ArchiveMovie[], items: JournalItem[]) {
@@ -36,7 +37,7 @@ export function fittedTextHeight(item: JournalItem) {
   for (const character of item.text ?? "") {
     if (character === "\n" || ctx.measureText(line + character).width > item.width * PAGE_WIDTH) { rows++; line = character === "\n" ? "" : character; } else line += character;
   }
-  return Math.min(1, (rows * size * 1.38 + 4) / PAGE_HEIGHT);
+  return Math.min(1, (rows * size * TEXT_LINE_HEIGHT + 4) / PAGE_HEIGHT);
 }
 function wrappedText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, width: number, lineHeight: number, maxLines: number) {
   let line = "", row = 0;
@@ -75,7 +76,11 @@ function drawItem(ctx: CanvasRenderingContext2D, item: JournalItem, movies: Arch
     ctx.beginPath(); ctx.rect(0, 0, width, height); ctx.clip();
     ctx.fillStyle = item.color ?? "#242424"; ctx.font = `400 ${size}px ${journalFontFamily(item.font)}`;
     ctx.textAlign = item.align ?? "left";
-    wrappedText(ctx, item.text ?? "", item.align === "center" ? width / 2 : item.align === "right" ? width : 0, size, width, size * 1.38, Math.max(1, Math.ceil(height / (size * 1.38))));
+    const lineHeight = size * TEXT_LINE_HEIGHT, metrics = ctx.measureText("가A");
+    const ascent = metrics.fontBoundingBoxAscent ?? size, descent = metrics.fontBoundingBoxDescent ?? 0;
+    // Match the CSS line box (half-leading above the glyphs) so the editor textarea and the canvas share one baseline.
+    const baseline = (lineHeight - (ascent + descent)) / 2 + ascent;
+    wrappedText(ctx, item.text ?? "", item.align === "center" ? width / 2 : item.align === "right" ? width : 0, baseline, width, lineHeight, Math.max(1, Math.ceil(height / lineHeight)));
   } else if (item.kind === "photo") {
     const image = images.get(item.assetId ?? "");
     if (image) {

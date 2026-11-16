@@ -2,16 +2,14 @@
 
 import type { MovieListResponse } from "@/types/movie";
 import styles from "./scenelog.module.css";
+import { Segmented } from "./segmented";
 
 export type LibraryMode = "tmdb" | "sample";
 type CatalogResult = null | { status: "error"; message: string } | { status: "success"; data: MovieListResponse };
 
 export function CatalogMode({ mode, onChange }: { mode: LibraryMode; onChange: (mode: LibraryMode) => void }) {
   return <div className={styles.catalogMode}>
-    <div className={styles.segmented}>
-      <button type="button" aria-pressed={mode === "tmdb"} className={mode === "tmdb" ? styles.selectedSegment : ""} onClick={() => onChange("tmdb")}>TMDB 영화</button>
-      <button type="button" aria-pressed={mode === "sample"} className={mode === "sample" ? styles.selectedSegment : ""} onClick={() => onChange("sample")}>예시 영화 체험</button>
-    </div>
+    <Segmented label="영화 목록 종류" items={[{ id: "tmdb", label: "TMDB 영화" }, { id: "sample", label: "예시 영화 체험" }]} value={mode} onChange={onChange} />
     <span>{mode === "tmdb" ? "인기 영화와 제목 검색" : "예시 영화 6편 · 체험용 별점"}</span>
   </div>;
 }

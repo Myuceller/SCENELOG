@@ -8,6 +8,7 @@ import type { AccountId, FilmLog } from "@/lib/scene-model";
 import { viewingArchive } from "@/lib/collection-insights";
 import styles from "./collection-views.module.css";
 
+
 export function VhsArchive({ movies, logs, user, onOpen, onRewatch }: {
   movies: ArchiveMovie[]; logs: FilmLog[]; user: AccountId;
   onOpen: (movie: ArchiveMovie, entry: FilmLog) => void; onRewatch: (movie: ArchiveMovie) => void;

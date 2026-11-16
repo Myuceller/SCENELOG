@@ -28,7 +28,6 @@ export function TasteHero({ movies, logs, user, onRecord, onOpenMovie, onDiary }
   movies: ArchiveMovie[]; logs: FilmLog[]; user: AccountId;
   onRecord: () => void; onOpenMovie: (movie: ArchiveMovie) => void; onDiary: () => void;
 }) {
-  const [hovered, setHovered] = useState<number | null>(null);
   const [period, setPeriod] = useState<"all" | "month">("all");
   const [selected, setSelected] = useState<string | null>(null);
   const month = today().slice(0, 7);
@@ -71,7 +70,7 @@ export function TasteHero({ movies, logs, user, onRecord, onOpenMovie, onDiary }
 {profile.facets.map((facet, index) => {
             const radius = facet.films.length ? Math.sqrt(42 ** 2 + (facet.films.length / maximum) * (212 ** 2 - 42 ** 2)) : 215;
             const label = point(facet.films.length ? (radius + 42) / 2 + 9 : 143, -68.5 + index * 45);
-            return <g key={facet.name} role="button" tabIndex={0} aria-label={`${facet.name} ${facet.films.length}편 분석 보기`} aria-pressed={active.name === facet.name} onMouseEnter={() => setHovered(index)} onMouseLeave={() => setHovered(null)} onFocus={() => setHovered(index)} onBlur={() => setHovered(null)} onClick={() => setSelected(facet.name)} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelected(facet.name); } }} className={`${styles.petal} ${active.name === facet.name ? styles.active : ""}`} style={{ "--index": index } as CSSProperties}>
+            return <g key={facet.name} role="button" tabIndex={0} aria-label={`${facet.name} ${facet.films.length}편 분석 보기`} aria-pressed={active.name === facet.name} onClick={() => setSelected(facet.name)} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelected(facet.name); } }} className={`${styles.petal} ${active.name === facet.name ? styles.active : ""}`} style={{ "--index": index } as CSSProperties}>
               <path className={styles.track} d={petal(215, index)} />
               {facet.films.length > 0 && <path className={styles.fill} d={petal(radius, index)} />}
               <text x={label[0]} y={label[1] - 4} className={facet.films.length ? styles.count : styles.zeroCount}>{facet.films.length}</text>

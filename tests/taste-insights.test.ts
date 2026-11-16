@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { normalizeMovie, type ArchiveMovie } from "../src/lib/archive-movies";
 import { josa } from "../src/lib/korean";
-import { buildTasteInsights } from "../src/lib/taste-insights";
+import { ANALYSES, buildTasteInsights } from "../src/lib/taste-insights";
 import type { FilmLog } from "../src/lib/scene-model";
 
 const movie = (id: string, genres: string[], extra: Partial<ArchiveMovie> = {}): ArchiveMovie => ({
@@ -121,4 +121,13 @@ test("조사는 받침에 맞게 붙는다", () => {
   assert.equal(josa("위플래쉬", "이에요", "예요"), "위플래쉬예요");
   assert.equal(josa("인터스텔라", "이에요", "예요"), "인터스텔라예요");
   assert.equal(josa("기생충", "이에요", "예요"), "기생충이에요");
+});
+
+test("새 분석은 목록에 함수 하나만 더하면 카드가 되고, 같은 id는 한 번만 나온다", () => {
+  const movies = ["a", "b", "c"].map(id => movie(id, ["x"]));
+  const logs = [log("a", 5), log("b", 4), log("c", 3)];
+  const extra = (id: string) => () => [{ id, hue: 100, label: "새 분석", short: "새 분석", big: "1", name: "예시", sentence: "", films: [], stats: [] as [string, string][] }];
+  const result = buildTasteInsights(movies, logs, "guma", [extra("custom"), extra("custom"), () => []]);
+  assert.deepEqual(result.insights.map(item => item.id), ["custom"]);
+  assert.ok(ANALYSES.length >= 10 && new Set(buildTasteInsights(movies, logs, "guma").insights.map(item => item.hue)).size >= 1);
 });

@@ -6,7 +6,7 @@ export const accounts = [
   { id: "gamja", name: "gamja", initial: "G", color: "#ff4b21", bio: "엔딩 크레딧까지 보고 나와요." },
   { id: "momo", name: "momo", initial: "M", color: "#d0d0d0", bio: "좋은 이야기는 두 번씩." },
 ] as const;
-export type AccountId = (typeof accounts)[number]["id"];
+export type AccountId = string;
 export type ThemeKey = "ost" | "visual" | "story";
 export type Tier = "S" | "A" | "B" | "C" | "D";
 export const themes: { key: ThemeKey; label: string; english: string; color: string }[] = [

@@ -1,6 +1,6 @@
 "use client";
 import Image from "next/image";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { AlignCenter, AlignLeft, AlignRight, Check, ChevronLeft, ChevronRight, Crop, Film, Hand, Highlighter, ImagePlus, Layers, MousePointer2, Pencil, Plus, Redo2, RotateCcw, RotateCw, Save, Trash2, Type, Undo2, X, ZoomIn, ZoomOut } from "lucide-react";
 import type { ArchiveMovie } from "@/lib/archive-movies";
 import { newId, type FilmLog } from "@/lib/scene-store";
@@ -16,7 +16,8 @@ import styles from "./film-journal.module.css";
 
 function NumberField({ value, min, max, label, onChange }: { value: number; min: number; max: number; label: string; onChange: (value: number) => void }) {
   const [draft, setDraft] = useState(String(value));
-  useEffect(() => setDraft(String(value)), [value]);
+  const [previousValue, setPreviousValue] = useState(value);
+  if (previousValue !== value) { setPreviousValue(value); setDraft(String(value)); }
   function apply() { const next = draft.trim() === "" ? value : Math.max(min, Math.min(max, Number(draft))); if (Number.isFinite(next)) { setDraft(String(next)); if (next !== value) onChange(next); } else setDraft(String(value)); }
   return <input type="number" aria-label={label} min={min} max={max} value={draft} onChange={event => setDraft(event.target.value)} onBlur={apply} onKeyDown={event => { if (event.key === "Enter") event.currentTarget.blur(); }} />;
 }
@@ -29,10 +30,11 @@ export function JournalStudio({ book, movies, logs, user, storageError, onChange
   const [flip, setFlip] = useState<{ from: number; to: number; direction: number } | null>(null), [opening, setOpening] = useState(true), [busy, setBusy] = useState(false);
   const [tool, setTool] = useState<JournalTool>("select"), [zoom, setZoom] = useState(100), [fitWidth, setFitWidth] = useState(900);
   const [penColor, setPenColor] = useState("#e84b29"), [penSize, setPenSize] = useState(4), [cropOpen, setCropOpen] = useState(false), [photoBusy, setPhotoBusy] = useState(false);
-  const [message, setMessage] = useState(""); const [, refreshHistory] = useState(0);
+  const [message, setMessage] = useState(""); const [historySize, setHistorySize] = useState({ past: 0, future: 0 });
   const past = useRef<FilmJournal[]>([]), future = useRef<FilmJournal[]>([]), current = useRef(book);
   const pan = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
-  current.current = book;
+  useLayoutEffect(() => { current.current = book; }, [book]);
+  function refreshHistory() { setHistorySize({ past: past.current.length, future: future.current.length }); }
   useEffect(() => { dialog.current?.showModal(); const element = dialog.current; return () => element?.close(); }, []);
   useEffect(() => {
     const element = viewport.current; if (!element) return;
@@ -42,9 +44,9 @@ export function JournalStudio({ book, movies, logs, user, storageError, onChange
   const selectedPage = book.pages.find(p => p.items.some(item => item.id === selectedId));
   const selected = selectedPage?.items.find(item => item.id === selectedId);
   const stamps = journalStampLogs(logs, user, scope === "year" ? book.year : undefined).filter(log => movies.find(movie => movie.id === log.movieId)?.title.toLowerCase().includes(query.toLowerCase()));
-  function commit(next: FilmJournal) { past.current = [...past.current.slice(-29), current.current]; future.current = []; current.current = next; onChange(next); refreshHistory(n => n + 1); setMessage(""); }
-  function undo() { const previous = past.current.pop(); if (!previous) return; future.current.push(book); setSelectedId(null); setStart(0); setActivePage(0); onChange(previous); refreshHistory(n => n + 1); }
-  function redo() { const next = future.current.pop(); if (!next) return; past.current.push(book); setSelectedId(null); onChange(next); refreshHistory(n => n + 1); }
+  function commit(next: FilmJournal) { past.current = [...past.current.slice(-29), current.current]; future.current = []; current.current = next; onChange(next); refreshHistory(); setMessage(""); }
+  function undo() { const previous = past.current.pop(); if (!previous) return; future.current.push(book); setSelectedId(null); setStart(0); setActivePage(0); onChange(previous); refreshHistory(); }
+  function redo() { const next = future.current.pop(); if (!next) return; past.current.push(book); setSelectedId(null); onChange(next); refreshHistory(); }
   function patchItem(patch: Partial<JournalItem>) {
     if (!selected || !selectedPage) return;
     const index = book.pages.findIndex(p => p.id === selectedPage.id), next = { ...selected, ...patch, x: selected.x + index - start };
@@ -94,7 +96,7 @@ export function JournalStudio({ book, movies, logs, user, storageError, onChange
     <header className={styles.studioHeader}><div><span>MY FILM JOURNAL / {book.year}</span><input aria-label="다이어리 제목" value={book.title} maxLength={36} disabled={busy} onChange={event => commit({ ...book, title: event.target.value })} /></div><span className={styles.saveState} role="status">{storageError ? "저장 공간을 확인해 주세요" : <><Check size={12} />자동 저장됨</>}</span><button className={styles.saveButton} disabled={busy || photoBusy} onClick={() => setMessage(onChange(current.current) ? "저장했어요. 이 브라우저에서 다시 열 수 있어요." : "저장하지 못했어요. 브라우저 저장 공간을 확인해 주세요.")}><Save size={15} />저장</button><button aria-label="다이어리 닫기" onClick={onClose}><X size={21} /></button></header>
     <div className={styles.studioBody}>
       <div className={styles.workspace} data-busy={busy}>
-        <div className={styles.bookTools}><div className={styles.toolModes}>{([["select", MousePointer2, "선택"], ["hand", Hand, "화면 이동"], ["pen", Pencil, "펜"], ["marker", Highlighter, "형광펜"]] as const).map(([value, Icon, label]) => <button key={value} aria-label={label} title={label} aria-pressed={tool === value} onClick={() => chooseTool(value)}><Icon size={16} /></button>)}</div><div><button aria-label="다이어리 실행 취소" disabled={!past.current.length || busy} onClick={undo}><Undo2 size={16} /></button><button aria-label="다이어리 다시 실행" disabled={!future.current.length || busy} onClick={redo}><Redo2 size={16} /></button><button onClick={addPages} disabled={busy}><Plus size={14} />페이지 추가</button></div></div>
+        <div className={styles.bookTools}><div className={styles.toolModes}>{([["select", MousePointer2, "선택"], ["hand", Hand, "화면 이동"], ["pen", Pencil, "펜"], ["marker", Highlighter, "형광펜"]] as const).map(([value, Icon, label]) => <button key={value} aria-label={label} title={label} aria-pressed={tool === value} onClick={() => chooseTool(value)}><Icon size={16} /></button>)}</div><div><button aria-label="다이어리 실행 취소" disabled={!historySize.past || busy} onClick={undo}><Undo2 size={16} /></button><button aria-label="다이어리 다시 실행" disabled={!historySize.future || busy} onClick={redo}><Redo2 size={16} /></button><button onClick={addPages} disabled={busy}><Plus size={14} />페이지 추가</button></div></div>
         <div ref={viewport} className={styles.bookViewport} data-tool={tool} onPointerDown={event => {
           if (tool !== "hand" || event.button !== 0) return; const el = event.currentTarget; pan.current = { x: event.clientX, y: event.clientY, left: el.scrollLeft, top: el.scrollTop }; el.setPointerCapture(event.pointerId);
         }} onPointerMove={event => { if (pan.current) { event.currentTarget.scrollLeft = pan.current.left - event.clientX + pan.current.x; event.currentTarget.scrollTop = pan.current.top - event.clientY + pan.current.y; } }} onPointerUp={() => { pan.current = null; }} onPointerCancel={() => { pan.current = null; }}>

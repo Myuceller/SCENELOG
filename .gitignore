@@ -12,3 +12,16 @@ yarn-error.log*
 .vercel
 *.tsbuildinfo
 next-env.d.ts
+
+# Firebase local state and service-account credentials
+.firebase/
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+*-firebase-adminsdk-*.json
+service-account*.json
+serviceAccount*.json
+/firebase.web.local.cjs
+
+# Local PostgreSQL cluster, credentials and logs
+/.local/

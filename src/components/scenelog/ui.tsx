@@ -6,7 +6,7 @@ import { accounts, type AccountId, type FilmComment } from "@/lib/scene-store";
 import styles from "./scenelog.module.css";
 
 export function Avatar({ id, small = false }: { id: AccountId; small?: boolean }) {
-  const account = accounts.find(a => a.id === id)!;
+  const account = accounts.find(a => a.id === id) ?? { name: "나의 계정", initial: "나", color: "#e8e8e8" };
   return <span className={`${styles.avatar} ${small ? styles.smallAvatar : ""}`} style={{ background: account.color }} aria-label={account.name}>{account.initial}<i /></span>;
 }
 export function Empty({ title, children }: { title: string; children?: ReactNode }) {

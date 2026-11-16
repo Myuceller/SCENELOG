@@ -3,7 +3,7 @@
 guma & gamja의 영화 취향과 평론을 기록하는 사이트입니다.
 같은 영화에 대한 서로 다른 시선을 나누고, 0.1점 단위의 세밀한 평가로 취향을 남깁니다.
 
-현재는 **TMDB 영화 조회 API와 영화 기록·컬렉션·친구 기능의 로컬 체험 UI**를 구현했습니다. 개인 별점과 리뷰는 브라우저에 저장되며, 사용자 인증과 공유 DB는 아직 연결하지 않았습니다.
+현재는 **TMDB 영화 조회, Supabase 로그인, 사용자별 Supabase PostgreSQL 기록 저장**을 구현했습니다. 로그인하면 개인 별점·리뷰·관람일·테마 점수·찜이 계정에 저장됩니다. 로그아웃 상태에서는 로그인·회원가입 화면이 표시됩니다. 실제 이용자 간 친구·추천·대화는 아직 연결하지 않았습니다.
 
 ## 이번 화면에서 할 수 있는 일
 
@@ -14,7 +14,7 @@ guma & gamja의 영화 취향과 평론을 기록하는 사이트입니다.
 - 프린터 출력 애니메이션·완료음과 별점순/티어별 PNG 저장
 - 개인 기록 JSON 백업
 
-상단 계정 선택에서 **guma**, **gamja**, **momo**를 전환해 친구 기능을 확인할 수 있습니다. 메시지는 실제 사람에게 전송되지 않으며 이 브라우저 안에 저장됩니다.
+로그인해야 개인 아카이브에 접근할 수 있습니다. 로그아웃하면 개인 화면이 닫히고 로그인 화면으로 돌아갑니다. 기존 체험 계정·기록은 읽거나 자동 이전하지 않습니다.
 
 발견 화면과 기록할 영화 선택은 기본적으로 TMDB API를 사용합니다. **‘예시 영화 체험’을 직접 선택한 경우에만** 기존 영화 6편을 보여줍니다. 토큰 누락이나 API 장애를 샘플로 숨기지 않습니다. 실제 영화의 상세 정보는 열 때 가져오고, 저장한 영화는 검색 페이지가 바뀌거나 새로고침해도 개인 컬렉션에서 유지됩니다.
 
@@ -45,7 +45,7 @@ npm ci
 cp .env.example .env.local
 ```
 
-Windows PowerShell에서는 `Copy-Item .env.example .env.local`을 사용합니다.
+위 복사는 `.env.local`이 없는 첫 설정 때만 실행합니다. 이미 있다면 기존 값을 유지하고 `.env.example`의 새 항목만 추가하세요. Windows PowerShell에서는 `Copy-Item .env.example .env.local`을 사용합니다.
 
 [TMDB API 설정](https://www.themoviedb.org/settings/api)에서 발급받은 **API Read Access Token**을 `.env.local`에 넣습니다. v3 API Key가 아닌 읽기 액세스 토큰을 사용합니다.
 
@@ -65,16 +65,26 @@ npm run dev
 [http://localhost:3000](http://localhost:3000)에서 인기 영화와 제목 검색을 확인합니다.
 토큰 없이도 빌드와 자동 테스트는 실행할 수 있습니다. 토큰이 없으면 영화 API는 `503 TMDB_NOT_CONFIGURED`를 반환하고 화면에는 오류 및 재시도 상태가 표시됩니다. 샘플 데이터로 자동 대체하지 않습니다. 화면의 ‘예시 영화로 체험하기’ 버튼으로 로컬 기능을 별도 확인할 수 있습니다.
 
+로그인은 **Supabase Auth**, 데이터 저장은 **Supabase PostgreSQL**, API·권한 검사는 **Next.js**에서 담당합니다. [Supabase 설정 가이드](docs/supabase.md)를 따라 `.env.local`을 채우고 `npm run db:setup`으로 테이블을 생성하세요. 이후에는 `npm run dev`로 Next.js만 실행하면 됩니다. 두 개발자 모두 같은 개발용 Supabase 프로젝트에 연결하므로 로컬 DB 설치나 서비스 계정 JSON은 필요하지 않습니다. 기존 Firebase 계정·기록은 자동 이전하지 않으며 Supabase에서 새로 가입합니다.
+
 ## 명령어
 
 | 명령어 | 용도 |
 | --- | --- |
-| `npm run dev` | 개발 서버 실행 |
+| `npm run dev` | Next.js 개발 서버 실행 (공유 Supabase 사용) |
+| `npm run dev:web` | dev와 동일하게 Next.js 실행 |
 | `npm run build` | 프로덕션 빌드 |
 | `npm start` | 빌드된 앱 실행 |
 | `npm run typecheck` | Next.js 타입 생성 및 TypeScript 검사 |
 | `npm run lint` | ESLint 검사 |
-| `npm test` | 영화 API 및 기록·정렬·영화 정보 보존 회귀 테스트 |
+| `npm test` | 인증·저장 API, PostgreSQL SQL 및 아카이브 회귀 테스트 |
+| `npm run db:setup` | 연결된 DB에 마이그레이션 적용 및 연결 확인 |
+| `npm run db:local:setup` | 선택 사항: macOS 로컬 DB 최초 생성 (DATABASE_URL을 로컬로 변경함) |
+| `npm run db:start` | 프로젝트 로컬 DB 시작 |
+| `npm run db:stop` | 프로젝트 로컬 DB 종료, 데이터 유지 |
+| `npm run db:status` | 로컬 DB 실행 상태 |
+| `npm run db:migrate` | 버전 관리된 SQL 마이그레이션 적용 |
+| `npm run db:check` | PostgreSQL 연결 및 기본 테이블 확인 |
 
 ## 프로젝트 구조
 
@@ -85,11 +95,17 @@ src/
       movies/
         route.ts              # GET /api/movies: 인기 영화 / 제목 검색
         [id]/route.ts         # GET /api/movies/:id: 상세 조회
+      auth/me/route.ts        # Supabase 토큰 검증 및 내 계정 조회
+      archive/route.ts        # 내 아카이브 GET/PUT
     layout.tsx                # 공통 레이아웃, 메타데이터
     page.tsx                  # 메인 페이지 조합
     globals.css               # 전역 스타일 및 색상 변수
     not-found.tsx             # 404 페이지
   server/                     # 서버 전용: 브라우저에서 import 금지
+    auth/                     # Supabase Auth 서버를 통한 토큰 검증
+    archive/                  # 저장 입력 검증, 트랜잭션, 충돌 검사
+    supabase/                 # 세션 저장 없는 서버 인증 클라이언트
+    db/                       # PostgreSQL 연결 풀, 트랜잭션, 마이그레이션
     http/
       errors.ts               # 공통 API 오류와 안전한 JSON 오류 응답
     movies/
@@ -106,6 +122,8 @@ src/
     movies/                   # 영화 카드
   hooks/
     use-movies.ts             # 조회 상태, 재시도, 요청 취소
+    use-supabase-user.ts      # 로그인 상태 구독
+    use-cloud-archive.ts      # 사용자별 저장·조회, 요청 취소
   lib/
     api/movies.ts             # 브라우저 → 같은 도메인의 Next.js API 호출
     archive-movies.ts         # 목록/상세 정규화, 보관한 영화 카탈로그
@@ -117,6 +135,12 @@ src/
     api.ts                    # 공통 오류 응답 타입
   data/
     movies.ts                 # 명시적인 예시 영화 체험용 데이터
+db/migrations/                # Git으로 공유하는 SQL 스키마 변경 이력
+scripts/db.ts                 # 마이그레이션·연결 확인 CLI
+scripts/postgres-local.ts     # 로컬 PostgreSQL 생성·시작·종료
+.local/                      # Git 제외: 로컬 DB 데이터·자격 증명
+docs/supabase.md              # Supabase Auth·공유 DB 설정
+docs/database.md              # 마이그레이션과 팀 협업 안내
 public/images/                # 기존 샘플 포스터와 출처
 tests/movies-api.test.ts       # API 입력 검증, 응답 변환, 장애 처리 테스트
 tests/scene-archive.test.ts    # 재관람, 0점/미평가, 테마·티어 정렬, 영화 정보 보존
@@ -138,7 +162,7 @@ app/api/movies → server/movies → server/tmdb → TMDB
 - `server/movies`는 영화 기능의 조회 로직을 담당합니다. Route Handler에서 외부 API를 직접 호출하지 않습니다.
 - `server/tmdb`는 외부 공급자 전용 코드입니다. TMDB 필드와 인증 방식을 UI에 전달하지 않습니다.
 - `types`는 브라우저와 서버가 공유하는 SCENELOG 데이터 계약입니다.
-- 추후 DB 도입 시 `server/db`, 영화 저장소 모듈을 추가하고 서비스에 연결합니다. 현재 DB 연결이나 ORM은 없습니다.
+- `server/archive`에서 PostgreSQL에 접근합니다. Supabase Auth로 검증한 사용자의 ID로 데이터 소유자를 정하고, SQL 매개변수·트랜잭션·revision 검사로 사용자별 기록을 저장합니다. 상세 내용은 DB 협업 가이드를 참고하세요.
 - 서버 컴포넌트에서 데이터가 필요하면 내부 HTTP API를 우회해 `server/movies/service.ts`를 직접 호출할 수 있습니다.
 
 ## 영화 API
@@ -207,7 +231,7 @@ app/api/movies → server/movies → server/tmdb → TMDB
 - 서버 코드는 `server-only`를 선언합니다. 클라이언트에서 필요한 타입은 `types`에서 가져옵니다.
 - 상태와 브라우저 이벤트가 필요한 컴포넌트·훅에만 `"use client"`를 선언합니다.
 - 스타일은 컴포넌트 옆 CSS Module에 둡니다.
-- DB, 인증, 쓰기 API는 실제 기능을 추가할 때 도입합니다.
+- 클라우드 API는 Supabase Auth의 `getUser(token)`으로 검증한 후 사용자별 데이터에 접근합니다. DB 소유권 검사는 Next.js에서 수행하며 `scenelog` 스키마는 Data API에 노출하지 않습니다.
 
 ## 검증
 
@@ -243,7 +267,7 @@ npm run build
 
 컬렉션의 우표 보기에서 연도별 한 권의 다이어리를 만듭니다. 표지를 누르면 책이 펼쳐지고, 기록한 영화 우표와 문장을 각 페이지에 붙일 수 있습니다. 마우스·터치 드래그, 방향키 이동(Shift로 크게 이동), 크기·회전·앞으로 가져오기·삭제, 실행 취소/다시 실행, 종이와 표지 변경을 지원합니다. 올해 기록으로 자동 꾸민 뒤 자유롭게 수정할 수도 있습니다.
 
-계정별 journals에 페이지·조각 배치를 저장하고 기존 JSON 백업에 함께 포함합니다. 우표는 선택한 연도 안의 영화별 최신 관람 기록을 사용하며, '내 모든 관람 기록'을 선택하면 관람일이 없는 영화도 붙일 수 있습니다. 다이어리와 원본 영화 리뷰는 별도로 보존됩니다.
+다이어리 페이지·조각 배치는 브라우저에 Supabase 사용자 ID별로 분리해서 저장하고 JSON 백업에 함께 포함합니다. 다이어리 꾸미기는 아직 기기 간 동기화되지 않습니다. 우표는 선택한 연도 안의 영화별 최신 관람 기록을 사용하며, '내 모든 관람 기록'을 선택하면 관람일이 없는 영화도 붙일 수 있습니다. 다이어리와 원본 영화 리뷰는 별도로 보존됩니다.
 
 영상 탭에서 편집한 배치 그대로 표지와 페이지 넘김을 MP4(H.264, 30fps)로 만듭니다. 정사각형 1080×1080과 세로 1080×1920을 지원하고, 빈 펼침면만 건너뛰므로 맞은편 페이지는 보존합니다. 화면·마이크 권한이나 서버 업로드 없이 브라우저 안에서 생성합니다. H.264 인코딩을 지원하지 않는 브라우저에는 안내를 표시합니다. 파일 생성 후 미리보기·다운로드가 가능하며 소리와 SNS 자동 게시 기능은 포함하지 않습니다. Mediabunny는 영상 만들기를 실행할 때만 불러옵니다.
 

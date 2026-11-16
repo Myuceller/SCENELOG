@@ -1,0 +1,34 @@
+.controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12px; }
+.controls button, .form button { border: 1px solid #ccc; background: #fff; color: #222; padding: 9px 13px; cursor: pointer; font: inherit; }
+.account { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.description { color: #666; line-height: 1.7; font-size: 14px; }
+.form { display: grid; gap: 16px; padding: 12px 0; }
+.field { display: grid; gap: 8px; }
+.form label { display: grid; gap: 8px; font-size: 14px; font-weight: 600; }
+.form input { width: 100%; padding: 12px; border: 1px solid #bbb; background: #fff; color: #222; font: inherit; }
+.form .primary { background: #222; color: #fff; }
+.form button:disabled, .controls button:disabled { opacity: .5; cursor: wait; }
+.links { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; }
+.links button { padding: 4px 0; border: 0; font-size: 12px; }
+.error { color: #ac2c17; font-size: 13px; line-height: 1.6; }
+.fieldError, .hint, .success { margin: 0; font-size: 12px; line-height: 1.6; }
+.fieldError { color: #ac2c17; }
+.hint { color: #666; }
+.success { color: #28734a; }
+.form input[aria-invalid="true"] { border-color: #ac2c17; }
+.passwordInput { position: relative; }
+.passwordInput input { padding-right: 48px; }
+.form .visibilityButton { position: absolute; right: 1px; top: 1px; bottom: 1px; width: 44px; display: grid; place-items: center; padding: 0; border: 0; background: transparent; color: #666; }
+.notice { margin: 0; padding: 12px; background: #f5f3ee; font-size: 13px; line-height: 1.6; }
+.confirmation { padding-top: 24px; }
+.confirmation strong { overflow-wrap: anywhere; }
+.confirmation > svg { color: #28734a; }
+
+.welcome { min-height: 100svh; display: grid; justify-items: center; align-content: center; gap: 32px; padding: 40px 20px; background: #f5f3ee; color: #222; }
+.brand { color: inherit; text-decoration: none; font-size: 32px; font-weight: 800; letter-spacing: -1.5px; }
+.brand span { font-size: 14px; vertical-align: top; margin-left: 4px; }
+.loginCard { width: min(100%, 440px); padding: 32px; background: #fff; border: 1px solid #dedbd5; }
+.eyebrow, .tagline { font-size: 10px; letter-spacing: 1.5px; color: #666; }
+.title { margin: 16px 0; font-size: clamp(24px, 5vw, 30px); letter-spacing: -1px; line-height: 1.3; }
+.form input:focus-visible, .form button:focus-visible { outline: 2px solid #e84b29; outline-offset: 3px; }
+@media (max-width: 480px) { .loginCard { padding: 24px; } .tagline { letter-spacing: .5px; } }

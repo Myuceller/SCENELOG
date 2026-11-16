@@ -1,5 +1,7 @@
 # SCENELOG
 
+`main`에 머지하면 GitHub Actions가 검사 후 Vercel 운영 배포를 실행합니다. 최초 연결에 필요한 GitHub Secrets와 Vercel 환경변수는 [배포 가이드](docs/deployment.md)를 참고하세요.
+
 guma & gamja의 영화 취향과 평론을 기록하는 사이트입니다.
 같은 영화에 대한 서로 다른 시선을 나누고, 0.1점 단위의 세밀한 평가로 취향을 남깁니다.
 

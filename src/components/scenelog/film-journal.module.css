@@ -181,3 +181,12 @@
 .presentBar>span { min-width:64px; text-align:center; font-size:var(--fs-12); font-variant-numeric:tabular-nums; }
 .presentBar small { color:#9fa3af; margin-left:4px; }
 @media(max-width:700px) { .studioHeader .presentButton { padding:9px 10px; }.studioHeader .presentButton { font-size:var(--fs-11); } }
+
+/* DIRECTION A · controls */
+.darkButton,.lightButton { min-height:48px; padding:0 22px; border:0; border-radius:999px; font-weight:700; transition:transform .2s var(--ease),background .2s,opacity .2s; }
+.darkButton { background:var(--ink); color:#fff; }
+.darkButton:hover:not(:disabled) { background:#2a2a2e; }
+.lightButton { background:var(--soft); color:var(--ink); }
+.lightButton:hover:not(:disabled) { background:var(--soft-hover); }
+.darkButton:active:not(:disabled),.lightButton:active:not(:disabled) { transform:scale(.96); }
+.studioHeader .saveButton,.studioHeader .presentButton { border-radius:999px; }

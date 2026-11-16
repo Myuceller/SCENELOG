@@ -72,3 +72,13 @@
 .historyRow button { border:0; background:none; padding:0; color:#888; font-size:var(--fs-10); white-space:nowrap; }
 @media(max-width:880px) { .feedGrid { grid-template-columns:1fr; }.filmCard { grid-template-columns:68px minmax(0,1fr); gap:0 12px; }.filmPoster { width:68px; height:102px; }.filmTitle { font-size:var(--fs-15); }.filmReview { font-size:var(--fs-11); } }
 @media(max-width:520px) { .feedTools { align-items:stretch; flex-direction:column; gap:10px; }.feedTools .search { max-width:none; }.feedTools select { width:100%; }.feedGrid { gap:9px; }.filmCard { grid-template-columns:57px minmax(0,1fr); gap:0 10px; padding:9px; }.filmPoster { width:57px; height:86px; }.filmTitle { font-size:var(--fs-14); margin:3px 0; }.filmInfo>span { font-size:var(--fs-8); gap:5px; }.filmInfo>small { font-size:var(--fs-9); }.filmReview { font-size:var(--fs-10); margin:6px 0; }.filmStats { gap:5px; }.filmStats>span { padding:4px 5px; font-size:var(--fs-9); }.filmDate { font-size:var(--fs-9); gap:5px; }.filmCardActions { gap:10px; margin-top:7px; padding-top:7px; }.filmCardActions button { font-size:var(--fs-9); }.historyRow { grid-template-columns:1fr auto; gap:5px 8px; }.historyRow time { grid-column:1; }.historyRow>span:nth-child(2) { grid-column:2; grid-row:1; }.historyRow p { grid-column:1/-1; grid-row:2; }.historyRow button { grid-column:2; grid-row:3; } }
+
+/* DIRECTION A · controls */
+.filters button,.filmCardActions button,.historyHeading button { min-height:40px; padding:0 14px; border:0; border-radius:999px; background:var(--soft); color:#55555d; font-weight:600; transition:transform .2s var(--ease),background .2s; }
+.filters button:active,.filmCardActions button:active { transform:scale(.96); }
+.filters button[aria-pressed=true] { background:var(--ink); color:#fff; }
+.filmCardActions { gap:8px; border-top:0; padding-top:4px; }
+.filmCardActions button:hover { background:var(--soft-hover); color:var(--ink); }
+.feedTools select { height:48px; border-radius:999px; border-color:transparent; background:var(--soft); padding:0 18px; }
+.search { max-width:none; min-height:48px; padding:0 18px; border-bottom:0; border-radius:999px; background:var(--soft); margin-bottom:0; }
+.feedTools .search { flex:1; }

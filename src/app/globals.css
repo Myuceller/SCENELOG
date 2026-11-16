@@ -6,6 +6,7 @@
   /* 16px+ fields stop iOS Safari from zooming the page on focus */
   input:not([type=range],[type=checkbox],[type=radio],[type=color],[type=file]), select, textarea { font-size:16px !important; }
 }
+:root { --ink:#111; --soft:#ededf0; --soft-hover:#e3e3e8; --ease:cubic-bezier(.2,.8,.2,1); }
 * { box-sizing:border-box; }
 html { scroll-behavior:smooth; }
 body { margin:0; color:var(--foreground); background:var(--background); font-family:"Pretendard",Arial,"Apple SD Gothic Neo","Malgun Gothic",sans-serif; -webkit-font-smoothing:antialiased; }

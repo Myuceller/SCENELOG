@@ -27,6 +27,12 @@ Next.js가 인증된 ID로 SQL의 소유자를 제한합니다. 공유 DB에서 
 
 ## 명령어와 검증
 
+기록 추가·수정·티어 변경은 `PUT /api/archive/log`로 `{ movie, log, revision }` 한 건만 전송합니다. 서버는 인증된 사용자의 행을 잠근 뒤 revision을 확인하고, 해당 영화 정보와 관람 기록만 upsert합니다. 해당 영화의 찜 해제와 revision 증가도 같은 트랜잭션으로 처리합니다. 응답에는 저장된 한 건과 새 revision만 포함하며, 브라우저는 기존 목록에 이를 반영합니다. 기존 테이블을 사용하므로 추가 마이그레이션은 없습니다.
+
+찜 추가·삭제는 `PUT /api/archive/watchlist`에 `{ saved: true, movie, revision }` 또는 `{ saved: false, movieId, revision }`을 보냅니다. 해당 찜만 반영하며, 찜 해제 시 관람 기록이 없는 영화 메타데이터만 함께 정리합니다. 관람 기록과 다른 영화의 찜은 유지합니다.
+
+`GET /api/archive`는 최초 조회에 사용합니다. 기존 `PUT /api/archive`의 전체 교체 API는 호환성을 위해 유지하며, 단건 API와 같은 revision으로 충돌을 검사합니다. 컬렉션 페이지네이션은 현재 클라이언트에서 표시할 카드 수를 제한합니다.
+
 ```bash
 npm run db:setup     # 마이그레이션 + 연결 확인
 npm run db:migrate   # 아직 적용하지 않은 파일 적용

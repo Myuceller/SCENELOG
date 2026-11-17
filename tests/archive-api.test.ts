@@ -6,12 +6,12 @@ import { applyMigrations, loadMigrations } from "../src/server/db/migrate";
 import type { DatabasePool } from "../src/server/db/pool";
 import { AuthApiError, type User } from "@supabase/supabase-js";
 import { createAuthenticator } from "../src/server/auth/authenticate";
-import { createArchiveHandlers } from "../src/server/archive/handlers";
+import { createArchiveHandlers, createRecordHandler } from "../src/server/archive/handlers";
 import { createArchiveRepository } from "../src/server/archive/repository";
-import { MAX_ARCHIVE_BYTES, writeSchema } from "../src/server/archive/schema";
+import { MAX_ARCHIVE_BYTES, MAX_RECORD_BYTES, writeSchema } from "../src/server/archive/schema";
 import { ApiError } from "../src/server/http/errors";
-import { emptyArchive, type ArchiveWrite } from "../src/types/archive";
-import { fromPersonalArchive, toPersonalArchive } from "../src/lib/personal-archive";
+import { emptyArchive, type ArchiveWrite, type RecordWrite } from "../src/types/archive";
+import { applyRecord, fromPersonalArchive, toPersonalArchive } from "../src/lib/personal-archive";
 import { normalizeMovie } from "../src/lib/archive-movies";
 import { createSeedState } from "../src/lib/scene-model";
 import { movies } from "../src/data/movies";
@@ -27,6 +27,10 @@ function body(): ArchiveWrite {
 }
 function request(data: unknown = body()) {
   return new Request("http://localhost/api/archive?userId=victim", { method: "PUT", headers: { "content-type": "application/json", authorization: "Bearer valid-test-token" }, body: JSON.stringify(data) });
+}
+function recordBody(revision = 0): RecordWrite {
+  const data = body();
+  return { movie: data.archive.catalog[0], log: data.archive.logs[0], revision };
 }
 // PGlite executes real PostgreSQL SQL in memory. It is single-connection;
 // the adapter serializes clients and does not simulate multi-connection row locking.
@@ -113,6 +117,118 @@ test("기록의 사용자 ID는 토큰에서만 가져오며 다른 사용자의
 test("새 계정은 예시 기록 없이 빈 아카이브로 시작", async (t) => {
   const { db } = await memoryDb(t);
   assert.deepEqual(await createArchiveRepository(() => db).read("new-user"), { archive: emptyArchive(), revision: 0 });
+});
+
+test("307편 중 한 건 수정은 해당 행만 갱신하고 나머지 기록·순서·타 계정을 보존", async (t) => {
+  const { db, engine } = await memoryDb(t);
+  let queries = 0;
+  const counted: DatabasePool = { async connect() {
+    const client = await db.connect();
+    return { query: (sql, values) => { queries++; return client.query(sql, values); }, release: () => client.release() };
+  } };
+  const repository = createArchiveRepository(() => counted);
+  const data = body();
+  data.archive.logs = Array.from({ length: 307 }, (_, i) => ({ ...data.archive.logs[0], id: `log-${i}`, movieId: `movie-${i}` }));
+  data.archive.catalog = data.archive.logs.map(log => ({ ...data.archive.catalog[0], id: log.movieId }));
+  data.archive.watchlist = ["movie-0", "movie-1"];
+  await repository.write("user", data);
+  await repository.write("other", body());
+  await engine.exec(`CREATE TABLE record_audit (operation text, id text);
+    CREATE FUNCTION audit_record() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN INSERT INTO record_audit VALUES (TG_OP, COALESCE(NEW.id, OLD.id)); RETURN NULL; END $$;
+    CREATE TRIGGER record_changes AFTER INSERT OR UPDATE OR DELETE ON scenelog.viewing_logs
+    FOR EACH ROW EXECUTE FUNCTION audit_record();`);
+  queries = 0;
+  const payload: RecordWrite = { movie: data.archive.catalog[0], log: { ...data.archive.logs[0], rating: 4.5, review: "수정한 감상" }, revision: 1 };
+  const saved = await repository.writeLog("user", payload);
+  assert.equal(queries, 5); // BEGIN, owner insert, owner lock, mutation, COMMIT; no full archive SELECT.
+  assert.deepEqual(saved, { ...payload, revision: 2 });
+  assert.deepEqual((await engine.query("SELECT * FROM record_audit")).rows, [{ operation: "UPDATE", id: "log-0" }]);
+  const expected = structuredClone(data.archive);
+  expected.logs[0] = payload.log;
+  expected.watchlist = ["movie-1"];
+  assert.deepEqual(await repository.read("user"), { archive: expected, revision: 2 });
+  assert.deepEqual((await repository.read("other")).archive, body().archive);
+  assert.deepEqual(toPersonalArchive(applyRecord(fromPersonalArchive("user", data.archive), saved)), expected);
+});
+
+test("단건 API는 새 계정·새 영화·재관람을 추가하고 응답에는 해당 기록만 반환", async (t) => {
+  const { db } = await memoryDb(t);
+  const repository = createArchiveRepository(() => db);
+  const handler = createRecordHandler({ authenticate: async () => ({ id: "owner" }), repository });
+  const first = await handler(request(recordBody()));
+  assert.equal(first.status, 200);
+  assert.equal(first.headers.get("Cache-Control"), "private, no-store");
+  assert.deepEqual(await first.json(), { ...recordBody(), revision: 1 });
+  const rewatch = { ...recordBody(1), log: { ...recordBody().log, id: "rewatch", rating: null, watchedOn: "", tier: "S" as const } };
+  await repository.writeLog("owner", rewatch);
+  const newMovie = normalizeMovie(movies[1]);
+  const next = { movie: newMovie, log: { ...recordBody().log, id: "new-film", movieId: newMovie.id }, revision: 2 };
+  await repository.writeLog("owner", next);
+  const result = await repository.read("owner");
+  assert.equal(result.revision, 3);
+  assert.deepEqual(result.archive.logs, [recordBody().log, rewatch.log, next.log]);
+  assert.deepEqual(result.archive.catalog, [recordBody().movie, newMovie]);
+  assert.deepEqual(await repository.read("victim"), { archive: emptyArchive(), revision: 0 });
+});
+
+test("단건과 전체 저장은 같은 revision으로 충돌 검사하며 오래된 요청은 변경하지 않음", async (t) => {
+  const { db } = await memoryDb(t);
+  const repository = createArchiveRepository(() => db);
+  const record = createRecordHandler({ authenticate: async () => ({ id: "user" }), repository });
+  const archive = createArchiveHandlers({ authenticate: async () => ({ id: "user" }), repository });
+  const responses = await Promise.all([record(request(recordBody())), archive.PUT(request())]);
+  assert.deepEqual(responses.map(response => response.status).sort(), [200, 409]);
+  const before = await repository.read("user");
+  assert.equal((await record(request(recordBody()))).status, 409);
+  assert.deepEqual(await repository.read("user"), before);
+  const results = await Promise.all([record(request(recordBody(1))), record(request(recordBody(1)))]);
+  assert.deepEqual(results.map(response => response.status).sort(), [200, 409]);
+});
+
+test("단건 저장 중 DB 오류는 영화 메타데이터·기록·찜·revision을 모두 롤백", async (t) => {
+  const { db } = await memoryDb(t);
+  const repository = createArchiveRepository(() => db);
+  await repository.write("user", body());
+  const invalid = recordBody(1);
+  invalid.movie.title = "실패 시 남으면 안 되는 제목";
+  invalid.log.rating = 6;
+  await assert.rejects(repository.writeLog("user", invalid), (error: unknown) => error instanceof ApiError && error.status === 503);
+  assert.deepEqual(await repository.read("user"), { ...body(), revision: 1 });
+});
+
+test("단건 요청의 인증·소유자 주입·영화 불일치·크기·잘못된 JSON 검증", async () => {
+  let writes = 0;
+  const repository = { writeLog: async (_uid: string, value: RecordWrite) => { writes++; return value; } };
+  const handler = createRecordHandler({ authenticate: async () => ({ id: "user" }), repository });
+  for (const invalid of [
+    { ...recordBody(), userId: "victim" },
+    { ...recordBody(), log: { ...recordBody().log, userId: "victim" } },
+    { ...recordBody(), log: { ...recordBody().log, movieId: "wrong-movie" } },
+    { ...recordBody(), log: { ...recordBody().log, rating: 5.1 } },
+    { ...recordBody(), revision: -1 },
+  ]) assert.equal((await handler(request(invalid))).status, 400);
+  const malformed = (text: string, type = "application/json") => new Request("http://localhost/api/archive/log", { method: "PUT", headers: { "Content-Type": type }, body: text });
+  assert.equal((await handler(malformed("{"))).status, 400);
+  assert.equal((await handler(malformed("{}", "text/plain"))).status, 415);
+  assert.equal((await handler(malformed("x".repeat(MAX_RECORD_BYTES + 1)))).status, 413);
+  const denied = createRecordHandler({ authenticate: async () => { throw new ApiError(401, "UNAUTHORIZED", "로그인 필요"); }, repository });
+  assert.equal((await denied(request(recordBody()))).status, 401);
+  assert.equal(writes, 0);
+});
+
+test("단건 API는 기존 기록의 영화 변경을 거부하고 최대 기록 수에서도 수정은 허용", async (t) => {
+  const { db } = await memoryDb(t);
+  const repository = createArchiveRepository(() => db);
+  const data = body();
+  data.archive.logs = Array.from({ length: 1000 }, (_, i) => ({ ...data.archive.logs[0], id: `log-${i}` }));
+  await repository.write("user", data);
+  const edit = { ...recordBody(1), log: { ...data.archive.logs[0], review: "수정" } };
+  await repository.writeLog("user", edit);
+  await assert.rejects(repository.writeLog("user", { ...edit, revision: 2, log: { ...edit.log, id: "overflow" } }), (error: unknown) => error instanceof ApiError && error.code === "ARCHIVE_LIMIT");
+  const movie = normalizeMovie(movies[1]);
+  await assert.rejects(repository.writeLog("user", { movie, revision: 2, log: { ...edit.log, movieId: movie.id } }), (error: unknown) => error instanceof ApiError && error.code === "INVALID_ARCHIVE");
+  assert.equal((await repository.read("user")).revision, 2);
 });
 
 test("같은 버전의 두 저장은 한 요청만 성공하고 나머지는 409", async (t) => {

@@ -10,7 +10,7 @@ export function Avatar({ id, small = false }: { id: AccountId; small?: boolean }
   return <span className={`${styles.avatar} ${small ? styles.smallAvatar : ""}`} style={{ background: account.color }} aria-label={account.name}>{account.initial}<i /></span>;
 }
 export function Empty({ title, children }: { title: string; children?: ReactNode }) {
-  return <div className={styles.empty}><span>＋</span><h3>{title}</h3><p>{children}</p></div>;
+  return <div className={styles.empty}><span>＋</span><h3>{title}</h3>{children && <p>{children}</p>}</div>;
 }
 export function Modal({ title, children, onClose, wide = false }: { title: string; children: ReactNode; onClose: () => void; wide?: boolean }) {
   const ref = useRef<HTMLDialogElement>(null);

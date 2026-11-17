@@ -37,7 +37,6 @@ export function FilmJournals({ movies, logs, user }: { movies: ArchiveMovie[]; l
           <strong>다이어리</strong>
           <p>기록한 영화는 우표가 되고, 빈 페이지는 나만의 장면이 돼요.</p>
           <p>책장을 좌우로 밀어서 넘기고, 표지를 눌러 열어요.</p>
-          <p>꾸미기는 이 브라우저의 내 계정에 저장돼요.</p>
         </div>
       </Popover></div>
     </div>

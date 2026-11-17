@@ -1,0 +1,15 @@
+.avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.avatar[data-size="large"] {
+  width: 72px;
+  height: 72px;
+  flex-basis: 72px;
+}

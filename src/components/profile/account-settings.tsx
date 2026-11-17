@@ -3,15 +3,18 @@
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { ArrowLeft, KeyRound } from "lucide-react";
+import { LoadingIndicator } from "@/components/ui/loading-indicator";
 import { LoginScreen } from "@/components/auth/auth-controls";
 import { useSupabaseUser } from "@/hooks/use-supabase-user";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { authMessage } from "@/lib/supabase/auth-errors";
-import { UserAvatar } from "./user-avatar";
+import { SocialSettings } from "./social-settings";
+import { useOwnProfile } from "@/hooks/use-own-profile";
 import styles from "./account-settings.module.css";
 
 export function AccountSettings() {
   const { user, loading, error: sessionError } = useSupabaseUser();
+  const own = useOwnProfile(user?.id);
   const pending = useRef(false);
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
@@ -31,9 +34,8 @@ export function AccountSettings() {
     finally { pending.current = false; setBusy(false); }
   }
 
-  if (loading) return <main id="main" className={styles.page}><p role="status">계정을 불러오는 중…</p></main>;
+  if (loading) return <main id="main" className={styles.page}><LoadingIndicator /></main>;
   if (!user) return <LoginScreen error={sessionError} />;
-  const name = user.user_metadata?.full_name || user.email?.split("@")[0] || "나의 계정";
   const emailLogin = user.identities?.some(identity => identity.provider === "email");
 
   return <main id="main" className={styles.page}>
@@ -41,8 +43,9 @@ export function AccountSettings() {
     <h1>설정</h1>
     <section className={styles.card} aria-labelledby="account-heading">
       <h2 id="account-heading">계정</h2>
-      <div className={styles.profile}><UserAvatar userId={user.id} name={name} size="large" /><strong>{name}</strong></div>
-      <dl className={styles.details}><div><dt>이메일</dt><dd>{user.email || "연결된 이메일 없음"}</dd></div></dl>
+      <SocialSettings key={user.id} profile={own.profile} error={own.error} loading={own.loading} onRetry={own.reload}>
+        <dl className={styles.details}><div><dt>이메일</dt><dd>{user.email || "연결된 이메일 없음"}</dd></div></dl>
+      </SocialSettings>
     </section>
     {emailLogin && <section className={styles.card} aria-labelledby="security-heading">
       <h2 id="security-heading">보안</h2>

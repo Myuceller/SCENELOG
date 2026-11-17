@@ -3,9 +3,7 @@
 .page h1 { margin:24px 0 30px; font-size:32px; letter-spacing:-1px; }
 .card { margin-bottom:20px; padding:28px; border:1px solid #e7e7eb; border-radius:22px; background:#fff; }
 .card h2 { margin:0 0 24px; font-size:18px; }
-.profile { display:flex; align-items:center; gap:18px; }
-.profile strong { min-width:0; font-size:20px; overflow-wrap:anywhere; }
-.details { margin:24px 0 0; }
+.details { margin:24px 0; }
 .details > div { display:grid; grid-template-columns:80px minmax(0,1fr); gap:16px; padding-top:20px; border-top:1px solid #eeeeef; font-size:14px; }
 .details dt { color:#72727a; }
 .details dd { margin:0; overflow-wrap:anywhere; }

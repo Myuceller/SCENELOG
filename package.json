@@ -11,6 +11,7 @@
     "test": "node --conditions=react-server --import tsx --test tests/*.test.ts",
     "db:check": "node --conditions=react-server --import tsx scripts/db.ts check",
     "db:migrate": "node --conditions=react-server --import tsx scripts/db.ts migrate",
+    "storage:setup": "node --conditions=react-server --import tsx scripts/setup-profile-storage.ts",
     "db:setup": "npm run db:migrate && npm run db:check",
     "db:start": "node --import tsx scripts/postgres-local.ts start",
     "db:stop": "node --import tsx scripts/postgres-local.ts stop",
@@ -30,6 +31,7 @@
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "server-only": "^0.0.1",
+    "sharp": "0.35.5",
     "zod": "^4.6.7"
   },
   "devDependencies": {

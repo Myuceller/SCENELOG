@@ -1,0 +1,23 @@
+.profile { display: flex; align-items: center; gap: 24px; margin-bottom: 32px; }
+.photo { display: grid; place-items: center; width: 96px; height: 120px; flex-shrink: 0; border-radius: 14px; object-fit: cover; background: #eeeef0; color: #74747e; }
+.profile h3 { margin: 0; font-size: 26px; letter-spacing: -.8px; }
+.profile p { margin: 8px 0 0; color: #72727c; font-size: 14px; }
+.heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+.heading h3 { margin: 0; font-size: 18px; }
+.heading h3 span { margin-left: 10px; color: #72727c; font-size: 14px; font-weight: 400; }
+.heading > span { color: #72727c; font-size: 12px; }
+.movies { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 28px 18px; list-style: none; padding: 0; margin: 0; }
+.movies li { min-width: 0; }
+.movie { display: flex; flex-direction: column; width: 100%; height: 100%; padding: 0; border: 0; background: none; color: inherit; text-align: left; font: inherit; cursor: pointer; border-radius: 10px; }
+.movie:focus-visible, .more:focus-visible { outline: 2px solid #ff5128; outline-offset: 5px; }
+.poster { display: grid; place-items: center; position: relative; width: 100%; aspect-ratio: 2 / 3; overflow: hidden; border-radius: 10px; background: #eeeef0; color: #85858f; }
+.poster img { object-fit: cover; transition: transform 180ms ease; }
+.movie:hover .poster img { transform: scale(1.035); }
+.movieTitle { margin-top: 12px; font-size: 15px; font-weight: 700; line-height: 1.5; word-break: keep-all; }
+.meta { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 5px; color: #72727c; font-size: 12px; }
+.rating { display: inline-flex; align-items: center; gap: 3px; color: #c54224; }
+.character { margin-top: 5px; font-size: 12px; line-height: 1.5; color: #72727c; }
+.status { padding: 36px 0; text-align: center; color: #72727c; }
+.more { display: block; margin: 28px auto 0; padding: 12px 24px; border: 0; border-radius: 24px; background: #eeeef0; color: #38383f; font: inherit; font-size: 14px; cursor: pointer; }
+@media (max-width: 600px) { .movies { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 14px; } .profile { gap: 18px; } .profile h3 { font-size: 22px; } }
+@media (prefers-reduced-motion: reduce) { .poster img { transition: none; } }

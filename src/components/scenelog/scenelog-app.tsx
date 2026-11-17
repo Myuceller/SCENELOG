@@ -17,6 +17,7 @@ import { useMovies } from "@/hooks/use-movies";
 import { fetchMovieDetail } from "@/lib/api/movies";
 import { VhsArchive } from "./collection-views";
 import { TierBoard } from "./tier-board";
+import { MainNav } from "./main-nav";
 import { sortLogs } from "@/lib/tier-view";
 import { FilmJournals } from "./film-journal";
 import { Segmented } from "./segmented";
@@ -63,7 +64,7 @@ function WorkspaceHeader({ user, view, navigate, saving = false, stats }: {
     <div className={styles.topLine}><span>A PERSONAL FILM ARCHIVE.</span><span>COLLECT SCENES. KEEP YOUR POINT OF VIEW.</span><span>MY CLOUD ARCHIVE <i /></span></div>
     <header className={styles.header}><div className={styles.headerInner}>
       <a href="#discover" className={styles.logo} onClick={e => { e.preventDefault(); navigate("discover"); }} aria-label="SceneLog 홈"><span className={styles.logoMark}><i /><i /><i /><i /></span>SceneLog<span className={styles.registered}>®</span></a>
-      <nav className={styles.nav} aria-label="주 메뉴">{views.map(v => <a href={`#${v.id}`} key={v.id} aria-label={v.label} aria-current={view === v.id ? "page" : undefined} className={view === v.id ? styles.activeNav : ""} onClick={e => { e.preventDefault(); navigate(v.id); }}><v.icon size={22} strokeWidth={1.8} aria-hidden="true" /><span className={styles.navFull}>{v.label}</span><span className={styles.navShort} aria-hidden="true">{v.short}</span></a>)}</nav>
+      <MainNav items={views} view={view} navigate={navigate} />
       <div className={styles.headerActions}><button className={`${styles.printNav} ${view === "print" ? styles.activePrintNav : ""}`} aria-label="프린트룸" onClick={() => navigate("print")}><Printer size={17} /><span>프린트룸</span></button><AuthControls user={user} disabled={saving} stats={stats} onOpenCollection={() => navigate("collection")} /></div>
     </div></header>
   </>;

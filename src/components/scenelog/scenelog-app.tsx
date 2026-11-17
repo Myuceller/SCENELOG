@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ArrowRight, ArrowUpRight, Bookmark, BookOpen, CalendarDays, ChartPie, Check, ChevronLeft, ChevronRight, Compass, LibraryBig, List, Users, Plus, Printer, Search, SlidersHorizontal } from "lucide-react";
 import type { ArchiveMovie as Movie } from "@/lib/archive-movies";
-import { latestLogs, newId, ratingToTier, themes, today, type FilmLog, type ThemeKey, type Tier, type SceneState } from "@/lib/scene-store";
+import { latestLogs, newId, themes, today, type FilmLog, type ThemeKey, type SceneState } from "@/lib/scene-store";
 import { readAccountJournals } from "@/lib/account-journals";
 import { getPrintItems } from "@/lib/print-sheet";
 import { Empty, Modal } from "./ui";
@@ -16,6 +16,8 @@ import { normalizeMovie, mergeMovieCatalog } from "@/lib/archive-movies";
 import { useMovies } from "@/hooks/use-movies";
 import { fetchMovieDetail } from "@/lib/api/movies";
 import { VhsArchive } from "./collection-views";
+import { TierBoard } from "./tier-board";
+import { sortLogs } from "@/lib/tier-view";
 import { FilmJournals } from "./film-journal";
 import { Segmented } from "./segmented";
 import { TasteHero } from "./taste-hero";
@@ -60,7 +62,6 @@ function readView(): View {
   const hash = window.location.hash.slice(1);
   return [...views.map(v => v.id), "print"].includes(hash) ? hash as View : "discover";
 }
-const tiers: Tier[] = ["S", "A", "B", "C", "D"];
 
 function WorkspaceHeader({ user, view, navigate, saving = false, stats, onOpenMovie, profile, incomingRequests, accountLoading = false }: {
   user: User; view: View; navigate: (view: View) => void; saving?: boolean;
@@ -97,6 +98,12 @@ function SceneLogWorkspace({ movies: initialMovies, store, user }: { movies: Mov
   const incomingRequests = useFriendRequests(user.id);
   const accountName = profile?.displayName || user?.user_metadata?.full_name || "나의 계정";
   const view = useSyncExternalStore(subscribeView, readView, () => "discover" as View);
+  // Moving to a menu further right slides the page in from the right, and the other way round. Derived while rendering, so no ref is read.
+  const [pane, setPane] = useState<{ view: View; dir: "forward" | "back" | "fade" }>({ view, dir: "fade" });
+  if (pane.view !== view) {
+    const order = [...views.map(item => item.id), "print"] as View[];
+    setPane({ view, dir: order.indexOf(view) > order.indexOf(pane.view) ? "forward" : "back" });
+  }
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [toast, setToast] = useState("");
@@ -108,7 +115,6 @@ function SceneLogWorkspace({ movies: initialMovies, store, user }: { movies: Mov
   const [month, setMonth] = useState(() => today().slice(0, 7));
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [collectionView, setCollectionView] = useState("vhs");
-  const [sort, setSort] = useState("rating");
   const [theme, setTheme] = useState<ThemeKey>("ost");
   const [libraryMode, setLibraryMode] = useState<LibraryMode>("tmdb");
   const [page, setPage] = useState(1);
@@ -179,7 +185,7 @@ function SceneLogWorkspace({ movies: initialMovies, store, user }: { movies: Mov
     setSelected(null); notify("기록을 저장했어요.");
   }
   function shiftMonth(offset: number) { const [year, m] = month.split("-").map(Number); const d = new Date(year, m - 1 + offset, 1); setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`); }
-  const sortedLogs = [...myLogs].sort((a, b) => sort === "recent" ? (b.watchedOn || b.createdAt).localeCompare(a.watchedOn || a.createdAt) : (b.rating ?? -1) - (a.rating ?? -1));
+  const sortedLogs = sortLogs(myLogs, "rating");
   const monthLogs = allMyLogs.filter(l => l.watchedOn.startsWith(month));
   const themeItems = getPrintItems(movies, myLogs, theme, "rating");
   const selectedDayLogs = allMyLogs.filter(l => l.watchedOn === selectedDay);
@@ -191,6 +197,7 @@ function SceneLogWorkspace({ movies: initialMovies, store, user }: { movies: Mov
     {error && <div className={styles.storageWarning} role="alert">{error} <button onClick={reload} disabled={saving}>최신 기록 불러오기</button></div>}
     {saving && <p className="sr-only" role="status">기록을 저장하는 중입니다…</p>}
     <main id="main" className={styles.main}>
+      <div className={styles.viewPane} data-dir={pane.dir} key={view}>
       {view === "discover" && <>
         <TasteHero key={state.userId} movies={movies} logs={state.logs} user={state.userId} onRecord={() => chooseFilm()} onOpenMovie={movie => openMovie(movie)} onDiary={() => navigate("diary")} />
         <div className={styles.archiveStrip}><span className={styles.stripTitle}><span className={styles.liveDot} />{accountName}’s ARCHIVE</span><span><strong>{myLogs.length.toString().padStart(2, "0")}</strong>기록한 영화</span><span><strong>{rated.length ? (rated.reduce((a, l) => a + (l.rating ?? 0), 0) / rated.length).toFixed(1) : "—"}</strong>나의 평균 별점</span><span><strong>{watchlist.length.toString().padStart(2, "0")}</strong>보고 싶은 영화</span><button onClick={() => navigate("friends")}><Users size={19} strokeWidth={1.9} aria-hidden="true" />친구의 추천 <b>{myRecommendations.length}</b><ArrowRight size={17} /></button></div>
@@ -203,17 +210,19 @@ function SceneLogWorkspace({ movies: initialMovies, store, user }: { movies: Mov
 
       {view === "diary" && <section className={styles.pageSection}><div className={styles.pageHeading}><div><p className={styles.eyebrow}>02 / DAYS IN FILM</p><h1>달력에 남은 <em>장면들.</em></h1><p>본 날짜에 포스터를 붙이고, 그날의 감상을 꺼내보세요.</p></div><button className={styles.blackButton} onClick={() => chooseFilm()}><Plus size={17} />관람 기록</button></div><div className={styles.calendarHeading}><div className={styles.monthTitle}><strong>{monthNumber.toString().padStart(2, "0")}</strong><span>{year}<br />MY FILM DIARY</span></div><div className={styles.monthActions}><span>이번 달 {monthLogs.length}회 관람</span><button aria-label="이전 달" className={styles.iconButton} onClick={() => shiftMonth(-1)}><ChevronLeft size={20} /></button><button className={styles.outlineButton} onClick={() => setMonth(today().slice(0, 7))}>이번 달</button><button aria-label="다음 달" className={styles.iconButton} onClick={() => shiftMonth(1)}><ChevronRight size={20} /></button></div></div><FilmCalendar month={month} logs={state.logs} movies={movies} user={state.userId} covers={state.calendarCovers?.[state.userId]} onDay={setSelectedDay} /><p className={styles.helper}>날짜를 눌러 기록을 보거나 대표 포스터를 선택하세요. 관람일이 없는 영화는 컬렉션에 보관돼요.</p></section>}
 
-      {view === "collection" && <section className={styles.pageSection}><div className={styles.pageHeading}><div><p className={styles.eyebrow}>03 / COLLECTED BY {accountName.toUpperCase()}</p><h1>나의 영화 <em>컬렉션.</em></h1><p>좋아하는 만큼, 나만의 순서로. {myLogs.length}편의 취향이 모였어요.</p></div><button className={styles.blackButton} onClick={() => navigate("print")}><Printer size={17} />프린트 만들기</button></div><div className={styles.collectionToolbar}><Segmented label="컬렉션 보기" items={[{ id: "vhs", label: "기록", icon: List }, { id: "diary", label: "다이어리", icon: BookOpen }, { id: "tier", label: "티어", icon: SlidersHorizontal }]} value={collectionView} onChange={setCollectionView} />{collectionView === "tier" && <select aria-label="컬렉션 정렬" value={sort} onChange={e => setSort(e.target.value)}><option value="rating">별점 높은 순</option><option value="recent">최근 관람순</option></select>}</div>
+      {view === "collection" && <section className={styles.pageSection}><div className={styles.pageHeading}><div><p className={styles.eyebrow}>03 / COLLECTED BY {accountName.toUpperCase()}</p><h1>나의 영화 <em>컬렉션.</em></h1><p>좋아하는 만큼, 나만의 순서로. {myLogs.length}편의 취향이 모였어요.</p></div></div><div className={styles.collectionToolbar}><Segmented label="컬렉션 보기" items={[{ id: "vhs", label: "기록", icon: List }, { id: "diary", label: "다이어리", icon: BookOpen }, { id: "tier", label: "티어", icon: SlidersHorizontal }]} value={collectionView} onChange={setCollectionView} /></div>
         {collectionView === "diary" && <FilmJournals key={state.userId} movies={movies} logs={sortedLogs} user={state.userId} />}
         {collectionView === "vhs" && <VhsArchive key={state.userId} movies={movies} logs={state.logs} user={state.userId} onOpen={openMovie} onRewatch={movie => openMovie(movie, undefined, true)} />}
-        {collectionView === "tier" && <div className={styles.tierBoard}>{tiers.map(tier => <div className={styles.tierRow} key={tier}><strong className={styles.tierLetter} data-tier={tier}>{tier}</strong><div>{sortedLogs.filter(l => (l.tier ?? ratingToTier(l.rating)) === tier && (l.rating !== null || l.tier)).map(log => { const movie = movies.find(m => m.id === log.movieId); if (!movie) return null; return <div className={styles.tierFilm} key={log.id}><button onClick={() => openMovie(movie)} aria-label={`${movie.title} 기록 열기`}><Image width={300} height={450} sizes="(max-width: 640px) 45vw, 240px" src={movie.poster} alt={movie.title} /></button><select aria-label={`${movie.title} 티어`} disabled={saving} value={tier} onChange={e => { const tier = e.target.value as Tier; void saveRecord(movie, { ...log, tier }); }}>{tiers.map(t => <option key={t}>{t}</option>)}</select></div>; })}</div></div>)}</div>}
+        {collectionView === "tier" && <TierBoard movies={movies} logs={myLogs} disabled={saving} onOpen={movie => openMovie(movie)} onMove={(logId, tier) => { void update(s => ({ ...s, logs: s.logs.map(l => l.id === logId ? { ...l, tier } : l) })); }} />}
         {myLogs.length === 0 && collectionView !== "diary" && <Empty title="아직 비어 있는 컬렉션">첫 영화에 별점을 남겨보세요.</Empty>}
+        <div className={styles.collectionPrint}><button className={styles.blackButton} onClick={() => navigate("print")}><Printer size={17} />프린트 만들기</button></div>
       </section>}
 
       {view === "themes" && <section className={styles.pageSection}><div className={styles.pageHeading}><div><p className={styles.eyebrow}>04 / A DIFFERENT POINT OF VIEW</p><h1>좋아하는 데는 <em>이유가 있지.</em></h1><p>영화의 별점과는 별개로, 음악과 장면과 이야기에 점수를.</p></div></div><div className={styles.themeCards}>{themes.map((t, i) => <button key={t.key} className={`${styles.themeCard} ${theme === t.key ? styles.activeTheme : ""}`} onClick={() => setTheme(t.key)}><span>0{i + 1} / {t.english}</span><strong>{t.label}</strong><span className={styles.themeSymbol}>{i === 0 ? "♫" : i === 1 ? "▣" : "Aa"}</span><ArrowUpRight size={24} /></button>)}</div><div className={styles.sectionHeading}><h2>나의 {themes.find(t => t.key === theme)?.label} 랭킹 <span>({themeItems.length})</span></h2><button className={styles.textButton} onClick={() => chooseFilm()}>테마 평가 추가 <Plus size={16} /></button></div><div className={styles.themeRankings}>{themeItems.map((item, i) => <button className={styles.themeRank} key={item.movie.id} onClick={() => openMovie(item.movie)}><span className={styles.rankNumber}>{String(i + 1).padStart(2, "0")}</span><Image width={300} height={450} sizes="(max-width: 640px) 45vw, 240px" src={item.movie.poster} alt="" /><span className={styles.rankName}><strong>{item.movie.title}</strong><small>{item.movie.year ?? "개봉일 미정"} / {item.movie.director ?? item.movie.genres.join(" / ")}</small></span><span className={styles.rankOverall}>전체 별점 {item.log.rating?.toFixed(1) ?? "—"}</span><b>{item.score?.toFixed(1) ?? "—"}</b><ArrowUpRight size={21} /></button>)}</div>{themeItems.length === 0 && <Empty title="이 테마의 첫 영화를 골라보세요">영화 기록에서 ‘테마별로 조금 더 자세히’를 펼쳐 평가할 수 있어요.</Empty>}</section>}
 
       {view === "friends" && <FriendsTab key={state.userId} userId={state.userId} incomingRequests={incomingRequests} onOpenMovie={movie => openMovie(movie)} />}
       {view === "print" && <PrintRoom key={state.userId} movies={movies} logs={myLogs} user={accountName} notify={notify} />}
+      </div>
     </main>
     <footer className={styles.footer}><div><strong>SceneLog<span>®</span></strong><p>COLLECT SCENES.<span className={styles.sentenceGap} /> KEEP YOUR POINT OF VIEW.</p></div><div><span>YOUR PERSONAL FILM ARCHIVE</span><small>This product uses the TMDB API but is not endorsed or certified by TMDB.</small></div><button className={styles.textButton} onClick={async () => { try { notify("사진을 포함한 기록 백업을 만들고 있어요."); const { journalPhotoBackup } = await import("@/lib/journal-assets"); const journals = { [state.userId]: readAccountJournals(localStorage, state.userId) }; const ids = Object.values(journals).flatMap(books => Object.values(books ?? {}).flatMap(book => book.pages.flatMap(page => page.items.flatMap(item => item.assetId ? [item.assetId] : [])))); const journalAssets = await journalPhotoBackup(ids); const blob = new Blob([JSON.stringify({ ...state, journals, journalAssets }, null, 2)], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = "scenelog-backup.json"; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); notify("사진까지 포함한 기록 백업을 저장했어요."); } catch { notify("사진 백업을 읽지 못했어요. 이 브라우저의 저장 공간을 확인해 주세요."); } }}>기록 백업 ↗</button></footer>
     {toast && <div className={styles.toast} role="status"><Check size={17} />{toast}</div>}

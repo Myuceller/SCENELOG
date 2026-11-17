@@ -17,6 +17,7 @@ import { useMovies } from "@/hooks/use-movies";
 import { fetchMovieDetail } from "@/lib/api/movies";
 import { VhsArchive } from "./collection-views";
 import { TierBoard } from "./tier-board";
+import { MainNav } from "./main-nav";
 import { sortLogs } from "@/lib/tier-view";
 import { FilmJournals } from "./film-journal";
 import { Segmented } from "./segmented";
@@ -74,7 +75,7 @@ function WorkspaceHeader({ user, view, navigate, saving = false, stats, onOpenMo
     <div className={styles.topLine}><span>A PERSONAL FILM ARCHIVE.</span><span>COLLECT SCENES. KEEP YOUR POINT OF VIEW.</span><span>MY CLOUD ARCHIVE <i /></span></div>
     <header className={styles.header}><div className={styles.headerInner}>
       <a href="#discover" className={styles.logo} onClick={e => { e.preventDefault(); navigate("discover"); }} aria-label="SceneLog 홈"><span className={styles.logoMark}><i /><i /><i /><i /></span>SceneLog<span className={styles.registered}>®</span></a>
-      <nav className={styles.nav} aria-label="주 메뉴">{views.map(v => <a href={`#${v.id}`} key={v.id} aria-label={v.id === "friends" && incomingRequests > 0 ? `친구들, 받은 친구 요청 ${incomingRequests}개` : v.label} aria-current={view === v.id ? "page" : undefined} className={view === v.id ? styles.activeNav : ""} onClick={e => { e.preventDefault(); navigate(v.id); }}><v.icon size={22} strokeWidth={1.8} aria-hidden="true" /><span className={styles.navFull}>{v.label}</span><span className={styles.navShort} aria-hidden="true">{v.short}</span>{v.id === "friends" && <RequestBadge count={incomingRequests} />}</a>)}</nav>
+      <MainNav items={views} view={view} navigate={navigate} labelFor={item => item.id === "friends" && incomingRequests > 0 ? `친구들, 받은 친구 요청 ${incomingRequests}개` : item.label} extra={item => item.id === "friends" ? <RequestBadge count={incomingRequests} /> : null} />
       <div className={styles.headerActions}><button className={`${styles.printNav} ${view === "print" ? styles.activePrintNav : ""}`} aria-label="프린트룸" onClick={() => navigate("print")}><Printer size={17} /><span>프린트룸</span></button>{onOpenMovie ? <GlobalSearch userId={user.id} onMovie={onOpenMovie} onUser={setProfileId} /> : <button type="button" className={styles.printNav} aria-label="통합 검색 준비 중" disabled><Search size={19} /></button>}<AuthControls user={user} profile={profile} loading={accountLoading} disabled={saving} stats={stats} onOpenCollection={() => navigate("collection")} /></div>
     </div></header>
     {profileId && onOpenMovie && <UserProfileDialog key={profileId} userId={user.id} profileId={profileId} onClose={() => setProfileId(null)} onMovie={onOpenMovie} />}

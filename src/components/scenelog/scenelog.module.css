@@ -362,10 +362,10 @@
 .toast { position:fixed; z-index:200; bottom:25px; left:50%; transform:translateX(-50%); max-width:calc(100% - 32px); padding:15px 22px; background:#161616; color:white; box-shadow:0 5px 25px #0003; font-size:var(--fs-12); display:flex; align-items:center; gap:10px; line-height:1.6; }
 .toast>svg { flex-shrink:0; color:var(--accent); }
 .storageWarning { background:#fff0ea; color:#a13013; padding:12px; font-size:var(--fs-13); text-align:center; }
-.loading { min-height:100vh; display:grid; place-content:center; text-align:center; }
+.loading { min-height:100svh; display:grid; place-content:center; justify-items:center; gap:16px; padding:24px; text-align:center; }
+.sessionPending { min-height:100svh; }
 .loading>strong { font-size:42px; font-weight:850; letter-spacing:-2px; }
-.loading>strong>span { font-size:var(--fs-16); vertical-align:top; }
-.loading>p { color:#888; font-size:var(--fs-13); }
+.loading>p { max-width:360px; margin:0; color:#888; font-size:var(--fs-13); line-height:1.6; }
 @media(max-width:600px) { .dialog { max-width:100%; } }
 @media(max-width:360px) { .headerInner { column-gap:8px; }.headerInner .logo { font-size:24px; }.headerInner .headerActions { gap:6px; }.headerInner .accountControl { padding-left:6px; }.headerInner .accountControl select { width:54px; } }
 @media(min-width:1500px) { .hero { min-height:455px; } .heroArt { min-height:455px; } .heroCopy h1 { font-size:56px; } }

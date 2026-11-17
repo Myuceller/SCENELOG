@@ -9,8 +9,7 @@ type CatalogResult = null | { status: "error"; message: string } | { status: "su
 
 export function CatalogMode({ mode, onChange }: { mode: LibraryMode; onChange: (mode: LibraryMode) => void }) {
   return <div className={styles.catalogMode}>
-    <Segmented label="영화 목록 종류" items={[{ id: "tmdb", label: "TMDB 영화" }, { id: "sample", label: "예시 영화 체험" }]} value={mode} onChange={onChange} />
-    <span>{mode === "tmdb" ? "인기 영화와 제목 검색" : "예시 영화 6편 · 체험용 별점"}</span>
+    <Segmented label="영화 목록 종류" items={[{ id: "tmdb", label: "영화 검색" }, { id: "sample", label: "예시 영화" }]} value={mode} onChange={onChange} />
   </div>;
 }
 
@@ -19,7 +18,7 @@ export function CatalogFeedback({ result, onRetry, onDemo }: { result: CatalogRe
   return <div className={styles.catalogFeedback} role={result?.status === "error" ? "alert" : "status"} aria-busy={!result}>
     {result?.status === "error" ? <>
       <strong>영화를 불러올 수 없어요.</strong><p>{result.message}</p>
-      <div className={styles.buttonRow}><button className={styles.blackButton} onClick={onRetry}>다시 시도</button><button className={styles.outlineButton} onClick={onDemo}>예시 영화로 체험하기</button></div>
+      <div className={styles.buttonRow}><button className={styles.blackButton} onClick={onRetry}>다시 시도</button><button className={styles.outlineButton} onClick={onDemo}>예시 영화 보기</button></div>
     </> : <p>영화를 불러오고 있어요…</p>}
   </div>;
 }

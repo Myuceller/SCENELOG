@@ -2,29 +2,55 @@
 
 import { useId, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { Eye, EyeOff, MailCheck } from "lucide-react";
+import { Eye, EyeOff, LogOut, MailCheck, MessageSquareText, Settings, Star } from "lucide-react";
 import { validateAuthForm, validateEmail, type AuthField, type AuthMode } from "@/lib/supabase/auth-form";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { authMessage } from "@/lib/supabase/auth-errors";
 import { Modal } from "@/components/scenelog/ui";
+import { UserAvatar } from "@/components/profile/user-avatar";
 import styles from "./auth.module.css";
 
-export function AuthControls({ user, disabled = false }: { user: User | null; disabled?: boolean }) {
+export function AuthControls({ user, disabled = false, stats, onOpenCollection }: {
+  user: User | null;
+  disabled?: boolean;
+  stats?: { ratedMovies: number; reviews: number };
+  onOpenCollection: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const name = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "나의 계정";
+  function openCollection() {
+    setOpen(false);
+    onOpenCollection();
+  }
   async function logout() {
     setBusy(true); setError("");
-    try { const { error } = await getSupabaseClient().auth.signOut({ scope: "local" }); if (error) throw error; }
+    try { const { error } = await getSupabaseClient().auth.signOut({ scope: "local" }); if (error) throw error; setOpen(false); }
     catch (error) { setError(authMessage(error)); }
     finally { setBusy(false); }
   }
-  return <div className={styles.controls}>
-    {user ? <><span className={styles.account}>{user.user_metadata?.full_name || user.email?.split("@")[0] || "나의 계정"}</span><button onClick={logout} disabled={disabled || busy}>로그아웃</button></> : <button onClick={() => setOpen(true)}>로그인 / 가입</button>}
-    {error && <span role="alert" className={styles.error}>{error}</span>}
-    {open && <LoginDialog onClose={() => setOpen(false)} />}
-  </div>;
+  return <>
+    {user ? <button type="button" className={styles.profileTrigger} aria-label="내 프로필 열기" aria-haspopup="dialog" aria-expanded={open} onClick={() => { setError(""); setOpen(true); }}>
+      <UserAvatar userId={user.id} name={name} />
+    </button> : <div className={styles.controls}><button onClick={() => setOpen(true)}>로그인 / 가입</button></div>}
+    {open && (user ? <Modal title="내 프로필" onClose={() => setOpen(false)}>
+      <div className={styles.profileSummary}>
+        <UserAvatar userId={user.id} name={name} size="large" />
+        <strong className={styles.profileName}>{name}</strong>
+      </div>
+      <div className={styles.profileStats}>
+        <button type="button" onClick={openCollection}><span className={styles.statLabel}><Star size={17} aria-hidden="true" />평가한 영화</span><span className={styles.statValue}>{stats ? stats.ratedMovies.toLocaleString("ko-KR") : "—"}<span>편</span></span></button>
+        <button type="button" onClick={openCollection}><span className={styles.statLabel}><MessageSquareText size={17} aria-hidden="true" />작성한 리뷰</span><span className={styles.statValue}>{stats ? stats.reviews.toLocaleString("ko-KR") : "—"}<span>개</span></span></button>
+      </div>
+      {error && <p role="alert" className={styles.error}>{error}</p>}
+      <div className={styles.profileActions}>
+        <Link href="/settings" className={styles.settingsButton} onClick={() => setOpen(false)}><Settings size={18} aria-hidden="true" />설정</Link>
+        <button type="button" className={styles.logoutButton} onClick={logout} disabled={disabled || busy}><LogOut size={18} aria-hidden="true" />{busy ? "로그아웃 중…" : "로그아웃"}</button>
+      </div>
+    </Modal> : <LoginDialog onClose={() => setOpen(false)} />)}
+  </>;
 }
 
 export function LoginScreen({ error }: { error: string | null }) {

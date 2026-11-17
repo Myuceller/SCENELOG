@@ -20,6 +20,7 @@ import { FilmJournals } from "./film-journal";
 import { Segmented } from "./segmented";
 import { TasteHero } from "./taste-hero";
 import { HomeFeatures } from "./home-features";
+import { WorkspaceSkeleton } from "./workspace-skeleton";
 import { FilmCalendar, DayRecords } from "./film-calendar";
 import { CatalogMode, CatalogFeedback, CatalogPagination, type LibraryMode } from "./catalog-controls";
 import styles from "./scenelog.module.css";
@@ -31,6 +32,8 @@ import { AuthControls, LoginScreen } from "@/components/auth/auth-controls";
 type WorkspaceStore = {
   state: SceneState | null;
   update: (fn: (state: SceneState) => SceneState) => Promise<boolean>;
+  saveRecord: (movie: Movie, log: FilmLog) => Promise<boolean>;
+  saveWatchlist: (movie: Movie, saved: boolean) => Promise<boolean>;
   storageError?: boolean;
   saving?: boolean;
   error?: string | null;
@@ -51,9 +54,23 @@ function readView(): View {
 }
 const tiers: Tier[] = ["S", "A", "B", "C", "D"];
 
+function WorkspaceHeader({ user, view, navigate, saving = false, stats }: {
+  user: User; view: View; navigate: (view: View) => void; saving?: boolean;
+  stats?: { ratedMovies: number; reviews: number };
+}) {
+  return <>
+    <div className={styles.topLine}><span>A PERSONAL FILM ARCHIVE.</span><span>COLLECT SCENES. KEEP YOUR POINT OF VIEW.</span><span>MY CLOUD ARCHIVE <i /></span></div>
+    <header className={styles.header}><div className={styles.headerInner}>
+      <a href="#discover" className={styles.logo} onClick={e => { e.preventDefault(); navigate("discover"); }} aria-label="SceneLog 홈"><span className={styles.logoMark}><i /><i /><i /><i /></span>SceneLog<span className={styles.registered}>®</span></a>
+      <nav className={styles.nav} aria-label="주 메뉴">{views.map(v => <a href={`#${v.id}`} key={v.id} aria-label={v.label} aria-current={view === v.id ? "page" : undefined} className={view === v.id ? styles.activeNav : ""} onClick={e => { e.preventDefault(); navigate(v.id); }}><v.icon size={22} strokeWidth={1.8} aria-hidden="true" /><span className={styles.navFull}>{v.label}</span><span className={styles.navShort} aria-hidden="true">{v.short}</span></a>)}</nav>
+      <div className={styles.headerActions}><button className={`${styles.printNav} ${view === "print" ? styles.activePrintNav : ""}`} aria-label="프린트룸" onClick={() => navigate("print")}><Printer size={17} /><span>프린트룸</span></button><AuthControls user={user} disabled={saving} stats={stats} onOpenCollection={() => navigate("collection")} /></div>
+    </div></header>
+  </>;
+}
+
 export function SceneLogApp({ movies }: { movies: MovieDetail[] }) {
   const session = useSupabaseUser();
-  if (session.loading) return <div className={styles.loading}><strong>SceneLog</strong><p>로그인 상태를 확인하는 중.</p></div>;
+  if (session.loading) return <main id="main" className={styles.sessionPending} aria-busy="true"><p className="sr-only" role="status">로그인 상태를 확인하는 중입니다.</p></main>;
   return session.user
     ? <CloudWorkspace key={session.user.id} user={session.user} movies={movies} />
     : <LoginScreen error={session.error} />;
@@ -63,7 +80,7 @@ function CloudWorkspace({ user, movies }: { user: User; movies: MovieDetail[] })
   return <SceneLogWorkspace movies={movies} store={store} user={user} />;
 }
 function SceneLogWorkspace({ movies: initialMovies, store, user }: { movies: MovieDetail[]; store: WorkspaceStore; user: User }) {
-  const { state, update, storageError, saving = false, error, reload } = store;
+  const { state, update, saveRecord, saveWatchlist, storageError, saving = false, error, reload } = store;
   const accountName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || state?.userId || "나의 계정";
   const view = useSyncExternalStore(subscribeView, readView, () => "discover" as View);
   const [query, setQuery] = useState("");
@@ -96,7 +113,12 @@ function SceneLogWorkspace({ movies: initialMovies, store, user }: { movies: Mov
   useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
   function notify(message: string) { setToast(message); if (toastTimer.current) clearTimeout(toastTimer.current); toastTimer.current = setTimeout(() => setToast(""), 4500); }
   function navigate(next: View) { history.replaceState(null, "", `#${next}`); window.dispatchEvent(new HashChangeEvent("hashchange")); window.scrollTo({ top: 0, behavior: "smooth" }); }
-  if (!state) return <div className={styles.loading}><strong>SceneLog<span>®</span></strong><p role={error ? "alert" : "status"}>{error || "당신의 장면을 꺼내는 중."}</p>{error && <button className={styles.blackButton} onClick={reload}>다시 불러오기</button>}<AuthControls user={user} /></div>;
+  if (!state) return <div className={styles.app}>
+    <WorkspaceHeader user={user} view={view} navigate={navigate} />
+    {error
+      ? <main id="main" className={styles.loading}><p role="alert">{error}</p><button className={styles.blackButton} onClick={reload}>다시 불러오기</button></main>
+      : <WorkspaceSkeleton view={view} />}
+  </div>;
   const sampleMovies = initialMovies.map(normalizeMovie);
   const liveMovies = catalog.result?.status === "success" ? catalog.result.data.data.map(normalizeMovie) : [];
   const pickerMovies = pickerCatalog.result?.status === "success" ? pickerCatalog.result.data.data.map(normalizeMovie) : [];
@@ -128,13 +150,17 @@ function SceneLogWorkspace({ movies: initialMovies, store, user }: { movies: Mov
   async function toggleWatchlist(movieId: string, onlyAdd = false) {
     const exists = watchlist.some(w => w.movieId === movieId);
     if (onlyAdd && exists) return;
-    const success = await update(s => ({ ...s, catalog: mergeMovieCatalog(s.catalog ?? [], movies.filter(m => m.id === movieId)), watchlist: exists ? s.watchlist.filter(w => !(w.userId === s.userId && w.movieId === movieId)) : [...s.watchlist, { userId: s.userId, movieId }] }));
+    const movie = selected?.movie.id === movieId ? selected.movie : movies.find(item => item.id === movieId);
+    if (!movie) return;
+    const success = await saveWatchlist(movie, !exists);
     if (!success) return;
     notify(exists ? "보고 싶은 영화에서 꺼냈어요." : "보고 싶은 영화에 담았어요.");
   }
   function chooseFilm(date?: string) { setPickerPage(1); setPickerDate(date); setPickerQuery(""); setPicker(true); }
   async function saveLog(log: FilmLog) {
-    const success = await update(s => ({ ...s, catalog: mergeMovieCatalog(s.catalog ?? [], selected ? [selected.movie] : movies.filter(m => m.id === log.movieId)), logs: s.logs.some(l => l.id === log.id) ? s.logs.map(l => l.id === log.id ? log : l) : [...s.logs, log], watchlist: s.watchlist.filter(w => !(w.userId === s.userId && w.movieId === log.movieId)) }));
+    const movie = selected?.movie.id === log.movieId ? selected.movie : movies.find(movie => movie.id === log.movieId);
+    if (!movie) return;
+    const success = await saveRecord(movie, log);
     if (!success) return;
     setSelected(null); notify("기록을 저장했어요.");
   }
@@ -146,12 +172,7 @@ function SceneLogWorkspace({ movies: initialMovies, store, user }: { movies: Mov
   const year = Number(month.slice(0, 4)); const monthNumber = Number(month.slice(5, 7));
 
   return <div className={styles.app}>
-    <div className={styles.topLine}><span>A PERSONAL FILM ARCHIVE.</span><span>COLLECT SCENES. KEEP YOUR POINT OF VIEW.</span><span>MY CLOUD ARCHIVE <i /></span></div>
-    <header className={styles.header}><div className={styles.headerInner}>
-      <a href="#discover" className={styles.logo} onClick={e => { e.preventDefault(); navigate("discover"); }} aria-label="SceneLog 홈"><span className={styles.logoMark}><i /><i /><i /><i /></span>SceneLog<span className={styles.registered}>®</span></a>
-      <nav className={styles.nav} aria-label="주 메뉴">{views.map(v => <a href={`#${v.id}`} key={v.id} aria-label={v.label} aria-current={view === v.id ? "page" : undefined} className={view === v.id ? styles.activeNav : ""} onClick={e => { e.preventDefault(); navigate(v.id); }}><v.icon size={22} strokeWidth={1.8} aria-hidden="true" /><span className={styles.navFull}>{v.label}</span><span className={styles.navShort} aria-hidden="true">{v.short}</span></a>)}</nav>
-      <div className={styles.headerActions}><button className={`${styles.printNav} ${view === "print" ? styles.activePrintNav : ""}`} aria-label="프린트룸" onClick={() => navigate("print")}><Printer size={17} /><span>프린트룸</span></button><AuthControls user={user} disabled={saving} /></div>
-    </div></header>
+    <WorkspaceHeader user={user} view={view} navigate={navigate} saving={saving} stats={{ ratedMovies: rated.length, reviews: allMyLogs.filter(log => log.review.trim().length > 0).length }} />
     {storageError && <p className={styles.storageWarning} role="alert">브라우저 저장소에 접근할 수 없어 새로고침 시 기록이 사라질 수 있어요.</p>}
     {error && <div className={styles.storageWarning} role="alert">{error} <button onClick={reload} disabled={saving}>최신 기록 불러오기</button></div>}
     {saving && <p className="sr-only" role="status">기록을 저장하는 중입니다…</p>}
@@ -171,7 +192,7 @@ function SceneLogWorkspace({ movies: initialMovies, store, user }: { movies: Mov
       {view === "collection" && <section className={styles.pageSection}><div className={styles.pageHeading}><div><p className={styles.eyebrow}>03 / COLLECTED BY {accountName.toUpperCase()}</p><h1>나의 영화 <em>컬렉션.</em></h1><p>좋아하는 만큼, 나만의 순서로. {myLogs.length}편의 취향이 모였어요.</p></div><button className={styles.blackButton} onClick={() => navigate("print")}><Printer size={17} />프린트 만들기</button></div><div className={styles.collectionToolbar}><Segmented label="컬렉션 보기" items={[{ id: "vhs", label: "기록", icon: List }, { id: "diary", label: "다이어리", icon: BookOpen }, { id: "tier", label: "티어", icon: SlidersHorizontal }]} value={collectionView} onChange={setCollectionView} />{collectionView === "tier" && <select aria-label="컬렉션 정렬" value={sort} onChange={e => setSort(e.target.value)}><option value="rating">별점 높은 순</option><option value="recent">최근 관람순</option></select>}</div>
         {collectionView === "diary" && <FilmJournals key={state.userId} movies={movies} logs={sortedLogs} user={state.userId} />}
         {collectionView === "vhs" && <VhsArchive key={state.userId} movies={movies} logs={state.logs} user={state.userId} onOpen={openMovie} onRewatch={movie => openMovie(movie, undefined, true)} />}
-        {collectionView === "tier" && <div className={styles.tierBoard}>{tiers.map(tier => <div className={styles.tierRow} key={tier}><strong className={styles.tierLetter} data-tier={tier}>{tier}</strong><div>{sortedLogs.filter(l => (l.tier ?? ratingToTier(l.rating)) === tier && (l.rating !== null || l.tier)).map(log => { const movie = movies.find(m => m.id === log.movieId); if (!movie) return null; return <div className={styles.tierFilm} key={log.id}><button onClick={() => openMovie(movie)} aria-label={`${movie.title} 기록 열기`}><Image width={300} height={450} sizes="(max-width: 640px) 45vw, 240px" src={movie.poster} alt={movie.title} /></button><select aria-label={`${movie.title} 티어`} disabled={saving} value={tier} onChange={e => { const tier = e.target.value as Tier; void update(s => ({ ...s, logs: s.logs.map(l => l.id === log.id ? { ...l, tier } : l) })); }}>{tiers.map(t => <option key={t}>{t}</option>)}</select></div>; })}</div></div>)}</div>}
+        {collectionView === "tier" && <div className={styles.tierBoard}>{tiers.map(tier => <div className={styles.tierRow} key={tier}><strong className={styles.tierLetter} data-tier={tier}>{tier}</strong><div>{sortedLogs.filter(l => (l.tier ?? ratingToTier(l.rating)) === tier && (l.rating !== null || l.tier)).map(log => { const movie = movies.find(m => m.id === log.movieId); if (!movie) return null; return <div className={styles.tierFilm} key={log.id}><button onClick={() => openMovie(movie)} aria-label={`${movie.title} 기록 열기`}><Image width={300} height={450} sizes="(max-width: 640px) 45vw, 240px" src={movie.poster} alt={movie.title} /></button><select aria-label={`${movie.title} 티어`} disabled={saving} value={tier} onChange={e => { const tier = e.target.value as Tier; void saveRecord(movie, { ...log, tier }); }}>{tiers.map(t => <option key={t}>{t}</option>)}</select></div>; })}</div></div>)}</div>}
         {myLogs.length === 0 && collectionView !== "diary" && <Empty title="아직 비어 있는 컬렉션">첫 영화에 별점을 남겨보세요.</Empty>}
       </section>}
 

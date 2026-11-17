@@ -438,7 +438,7 @@
 .app .printNav>span { display:none; }
 .app .printNav.activePrintNav { background:#111; color:#fff; }
 .app .accountControl { height:42px; padding:4px 10px 4px 4px; border-left:0; border-radius:999px; background:#fff; box-shadow:0 2px 8px #0000000f; }
-.app .nav { order:0; width:auto; gap:4px; padding:4px; border:0; border-radius:999px; background:#ededf0; overflow:visible; }
+.app .nav { position:relative; order:0; width:auto; gap:4px; padding:4px; border:0; border-radius:999px; background:#ededf0; overflow:visible; }
 .app .nav a { position:relative; display:flex; align-items:center; gap:7px; padding:10px 16px; border-radius:999px; font-size:var(--fs-14); font-weight:600; color:#77777f; }
 .app .nav a:hover { color:#111; }
 .app .nav .activeNav { background:#fff; color:#111; box-shadow:0 1px 4px #0000001a; }
@@ -575,3 +575,18 @@
 .collectionPrint { margin-top:34px; }
 .collectionPrint .blackButton { width:100%; min-height:56px; padding:0 24px; border-radius:999px; font-size:var(--fs-15); font-weight:700; }
 @media(min-width:700px) { .collectionPrint .blackButton { width:auto; min-width:260px; } }
+
+/* Main menu: one pill slides to the active item (placed by main-nav.tsx), icons and labels fade to their new colour. */
+.navPill { position:absolute; left:0; top:0; width:var(--pill-w,0); height:var(--pill-h,0); transform:translate(var(--pill-x,0),var(--pill-y,0)); border-radius:999px; background:#fff; box-shadow:0 1px 4px #0000001a; opacity:0; pointer-events:none; }
+.nav[data-ready] .navPill { opacity:1; transition:transform .38s var(--ease),width .38s var(--ease),height .38s var(--ease),opacity .2s; }
+.app .nav a { transition:color .14s ease-out; }
+.app .nav .activeNav { background:transparent; box-shadow:none; transition:color .16s ease-out; }
+.app .nav:not([data-ready]) .activeNav { background:#fff; box-shadow:0 1px 4px #0000001a; }
+@media(max-width:900px) {
+  .navPill { background:#111; box-shadow:none; }
+  .app .nav .activeNav { background:transparent; color:#fff; }
+  .app .nav:not([data-ready]) .activeNav { background:#111; box-shadow:none; }
+}
+/* The active item sits on the black pill, so hovering it turns it orange instead of dark. Not on touch, where hover would stick after a tap. */
+@media(max-width:900px) and (hover:hover) { .app .nav .activeNav:hover { color:var(--accent); } }
+@media(prefers-reduced-motion:reduce) { .nav[data-ready] .navPill, .app .nav a, .app .nav .activeNav { transition:none; } }

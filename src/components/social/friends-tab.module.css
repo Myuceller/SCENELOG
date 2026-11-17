@@ -1,0 +1,59 @@
+.page { padding:36px 0 64px; }
+.heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:28px; }
+.eyebrow { font-size:11px; color:#777781; letter-spacing:1.5px; }
+.heading h1 { margin:12px 0 0; font-size:clamp(28px,4vw,42px); letter-spacing:-1.6px; font-weight:650; }
+.heading em { font-style:normal; color:var(--accent); }
+.settings { display:flex; align-items:center; gap:8px; padding:12px 16px; border-radius:999px; background:var(--soft); color:var(--ink); text-decoration:none; font-size:13px; white-space:nowrap; }
+.toolbar { display:flex; justify-content:space-between; gap:20px; flex-wrap:wrap; margin-bottom:24px; }
+.tabs { display:flex; gap:4px; padding:4px; border-radius:999px; background:var(--soft); }
+.tabs button { position:relative; border:0; padding:10px 17px; border-radius:999px; background:none; color:#6b6b75; font:inherit; font-size:13px; cursor:pointer; }
+.tabs button[aria-pressed=true] { background:var(--ink); color:#fff; }
+.search { display:flex; align-items:center; gap:10px; min-width:0; width:320px; max-width:100%; padding:0 14px; border-radius:999px; background:var(--soft); color:#777; }
+.search input { flex:1; width:100%; min-width:0; height:48px; border:0; background:none; font:inherit; font-size:13px; }
+.search button { border:0; background:none; color:var(--ink); padding:12px 0; font:inherit; font-size:12px; white-space:nowrap; cursor:pointer; }
+.results { scroll-margin-top:110px; }
+.people,.recordGrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+.person { display:flex; align-items:center; justify-content:space-between; min-width:0; gap:16px; border:1px solid #e8e8ec; border-radius:20px; background:#fff; padding:20px; }
+.identity { display:flex; align-items:center; gap:12px; min-width:0; border:0; background:none; padding:0; text-align:left; color:var(--ink); cursor:pointer; font:inherit; }
+.identity > span:last-child { min-width:0; }
+.identity strong { display:block; font-size:15px; overflow-wrap:anywhere; }
+.identity small { display:block; margin-top:7px; font-size:12px; color:#777781; }
+.friendship { display:flex; flex-direction:column; align-items:center; gap:8px; }
+.actions { display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:8px; }
+.action { display:flex; align-items:center; justify-content:center; gap:6px; min-height:42px; padding:10px 14px; border:0; border-radius:999px; background:var(--ink); color:#fff; font:inherit; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap; flex-shrink:0; }
+.secondary { background:var(--soft); color:#666672; }
+.danger { background:#fff0ee; color:#b42318; }
+.action:disabled { opacity:.5; cursor:wait; }
+.action:focus-visible { outline:2px solid var(--accent); outline-offset:4px; }
+.state { display:inline-flex; align-items:center; gap:5px; color:#777781; font-size:12px; white-space:nowrap; }
+.searchHeading { margin:0 0 20px; font-size:16px; }
+.refresh { border:0; border-radius:999px; padding:10px 14px; background:var(--soft); color:var(--ink); font:inherit; font-size:12px; cursor:pointer; }
+.empty { padding:48px 20px; text-align:center; color:#777781; font-size:14px; }
+.empty button { display:inline-flex; align-items:center; gap:5px; margin-top:12px; border:0; border-radius:999px; padding:12px 18px; background:var(--ink); color:#fff; cursor:pointer; }
+.record { min-width:0; background:#fff; border:1px solid #e8e8ec; border-radius:20px; padding:20px; }
+.recordOwner { display:flex; align-items:center; gap:10px; width:100%; padding:0 0 16px; border:0; background:none; text-align:left; font:inherit; color:var(--ink); cursor:pointer; }
+.recordOwner strong { font-size:13px; overflow-wrap:anywhere; }
+.recordOwner time { margin-left:auto; color:#888892; font-size:11px; flex-shrink:0; }
+.film { display:flex; align-items:center; gap:16px; }
+.film > button { padding:0; border:0; background:none; flex-shrink:0; cursor:pointer; }
+.film img { display:block; width:72px; height:108px; object-fit:cover; border-radius:6px; }
+.title { border:0; background:none; padding:0; font:inherit; font-size:17px; font-weight:650; text-align:left; color:var(--ink); cursor:pointer; }
+.film small { display:block; margin:8px 0 12px; color:#888892; font-size:12px; }
+.rating { display:flex; align-items:center; gap:5px; font-size:13px; font-weight:600; color:var(--accent); }
+.review { margin:16px 0 0; font-size:14px; line-height:1.8; color:#55555d; white-space:pre-wrap; overflow-wrap:anywhere; max-height:280px; overflow:auto; }
+.spoiler { margin-top:16px; width:100%; border:0; border-radius:12px; padding:12px; background:var(--soft); color:#777; cursor:pointer; font:inherit; font-size:12px; }
+.profile { display:flex; flex-direction:column; align-items:center; gap:12px; padding:0 0 24px; }
+.profile h2 { font-size:22px; margin:0; overflow-wrap:anywhere; text-align:center; }
+.profile p { margin:0; color:#777781; font-size:13px; }
+.counts { display:flex; justify-content:center; gap:20px; padding:18px; background:var(--soft); border-radius:16px; font-size:12px; margin-bottom:20px; }
+.counts b { display:block; margin-top:8px; font-size:22px; text-align:center; }
+.profileRecords { display:grid; gap:12px; }
+.private { display:flex; align-items:center; justify-content:center; gap:10px; padding:30px 0; color:#777781; font-size:14px; }
+.pagination { display:flex; justify-content:center; align-items:center; gap:16px; margin:28px 0 0; font-size:13px; color:#777781; }
+.pagination button { display:grid; place-items:center; width:44px; height:44px; border:0; border-radius:50%; background:var(--soft); color:var(--ink); cursor:pointer; }
+.pagination button:disabled { opacity:.35; cursor:default; }
+.error { color:#b42318; font-size:13px; line-height:1.8; margin:16px 0; }
+.error button { margin-left:8px; border:0; background:var(--soft); padding:8px 12px; border-radius:999px; color:var(--ink); cursor:pointer; }
+.page button:focus-visible,.page a:focus-visible { outline:2px solid var(--accent); outline-offset:4px; }
+@media(max-width:800px) { .people,.recordGrid { grid-template-columns:1fr; }.toolbar { gap:14px; }.search { width:100%; } }
+@media(max-width:520px) { .page { padding-top:24px; }.heading { align-items:flex-start; }.settings { padding:10px; font-size:12px; gap:5px; }.eyebrow { font-size:9px; }.tabs { width:100%; }.tabs button { position:relative; flex:1; padding:10px 8px; font-size:12px; white-space:nowrap; }.person,.record { padding:16px; }.person { gap:10px; }.counts { gap:16px; } }

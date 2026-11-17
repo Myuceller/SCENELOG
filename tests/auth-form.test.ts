@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { validateAuthForm, validateEmail } from "../src/lib/supabase/auth-form";
 
-const valid = { email: "viewer@example.com", password: "test-only-password", passwordConfirm: "test-only-password" };
+const valid = { nickname: "영화친구", email: "viewer@example.com", password: "test-only-password", passwordConfirm: "test-only-password" };
 
 test("signup requires every field and rejects mismatched confirmation", () => {
-  assert.deepEqual(Object.keys(validateAuthForm("signup", { email: "", password: "", passwordConfirm: "" })), ["email", "password", "passwordConfirm"]);
+  assert.deepEqual(Object.keys(validateAuthForm("signup", { nickname: "", email: "", password: "", passwordConfirm: "" })), ["email", "password", "nickname", "passwordConfirm"]);
   assert.ok(validateAuthForm("signup", { ...valid, passwordConfirm: "different-password" }).passwordConfirm);
   assert.ok(validateAuthForm("signup", { ...valid, passwordConfirm: "" }).passwordConfirm);
   assert.deepEqual(validateAuthForm("signup", valid), {});

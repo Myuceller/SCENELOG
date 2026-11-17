@@ -1,0 +1,1 @@
+.badge { position:absolute; top:-5px; right:-3px; display:grid; place-items:center; min-width:19px; height:19px; padding:0 5px; border-radius:999px; background:#df3232; color:#fff; border:2px solid #fff; font-size:11px; line-height:1; font-weight:700; font-variant-numeric:tabular-nums; pointer-events:none; }

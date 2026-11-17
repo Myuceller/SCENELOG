@@ -30,6 +30,14 @@ import type { User } from "@supabase/supabase-js";
 import { useSupabaseUser } from "@/hooks/use-supabase-user";
 import { useCloudArchive } from "@/hooks/use-cloud-archive";
 import { AuthControls, LoginScreen } from "@/components/auth/auth-controls";
+import { FriendsTab } from "@/components/social/friends-tab";
+import { GlobalSearch } from "@/components/search/global-search";
+import { UserProfileDialog } from "@/components/social/user-profile-dialog";
+import { useOwnProfile } from "@/hooks/use-own-profile";
+import { LoadingIndicator } from "@/components/ui/loading-indicator";
+import { RequestBadge } from "@/components/social/request-badge";
+import { useFriendRequests } from "@/hooks/use-friend-requests";
+import type { OwnProfile } from "@/types/social";
 
 type WorkspaceStore = {
   state: SceneState | null;
@@ -55,23 +63,27 @@ function readView(): View {
   return [...views.map(v => v.id), "print"].includes(hash) ? hash as View : "discover";
 }
 
-function WorkspaceHeader({ user, view, navigate, saving = false, stats }: {
+function WorkspaceHeader({ user, view, navigate, saving = false, stats, onOpenMovie, profile, incomingRequests, accountLoading = false }: {
   user: User; view: View; navigate: (view: View) => void; saving?: boolean;
   stats?: { ratedMovies: number; reviews: number };
+  onOpenMovie?: (movie: Movie) => void;
+  profile?: OwnProfile; incomingRequests: number; accountLoading?: boolean;
 }) {
+  const [profileId, setProfileId] = useState<string | null>(null);
   return <>
     <div className={styles.topLine}><span>A PERSONAL FILM ARCHIVE.</span><span>COLLECT SCENES. KEEP YOUR POINT OF VIEW.</span><span>MY CLOUD ARCHIVE <i /></span></div>
     <header className={styles.header}><div className={styles.headerInner}>
       <a href="#discover" className={styles.logo} onClick={e => { e.preventDefault(); navigate("discover"); }} aria-label="SceneLog 홈"><span className={styles.logoMark}><i /><i /><i /><i /></span>SceneLog<span className={styles.registered}>®</span></a>
-      <nav className={styles.nav} aria-label="주 메뉴">{views.map(v => <a href={`#${v.id}`} key={v.id} aria-label={v.label} aria-current={view === v.id ? "page" : undefined} className={view === v.id ? styles.activeNav : ""} onClick={e => { e.preventDefault(); navigate(v.id); }}><v.icon size={22} strokeWidth={1.8} aria-hidden="true" /><span className={styles.navFull}>{v.label}</span><span className={styles.navShort} aria-hidden="true">{v.short}</span></a>)}</nav>
-      <div className={styles.headerActions}><button className={`${styles.printNav} ${view === "print" ? styles.activePrintNav : ""}`} aria-label="프린트룸" onClick={() => navigate("print")}><Printer size={17} /><span>프린트룸</span></button><AuthControls user={user} disabled={saving} stats={stats} onOpenCollection={() => navigate("collection")} /></div>
+      <nav className={styles.nav} aria-label="주 메뉴">{views.map(v => <a href={`#${v.id}`} key={v.id} aria-label={v.id === "friends" && incomingRequests > 0 ? `친구들, 받은 친구 요청 ${incomingRequests}개` : v.label} aria-current={view === v.id ? "page" : undefined} className={view === v.id ? styles.activeNav : ""} onClick={e => { e.preventDefault(); navigate(v.id); }}><v.icon size={22} strokeWidth={1.8} aria-hidden="true" /><span className={styles.navFull}>{v.label}</span><span className={styles.navShort} aria-hidden="true">{v.short}</span>{v.id === "friends" && <RequestBadge count={incomingRequests} />}</a>)}</nav>
+      <div className={styles.headerActions}><button className={`${styles.printNav} ${view === "print" ? styles.activePrintNav : ""}`} aria-label="프린트룸" onClick={() => navigate("print")}><Printer size={17} /><span>프린트룸</span></button>{onOpenMovie ? <GlobalSearch userId={user.id} onMovie={onOpenMovie} onUser={setProfileId} /> : <button type="button" className={styles.printNav} aria-label="통합 검색 준비 중" disabled><Search size={19} /></button>}<AuthControls user={user} profile={profile} loading={accountLoading} disabled={saving} stats={stats} onOpenCollection={() => navigate("collection")} /></div>
     </div></header>
+    {profileId && onOpenMovie && <UserProfileDialog key={profileId} userId={user.id} profileId={profileId} onClose={() => setProfileId(null)} onMovie={onOpenMovie} />}
   </>;
 }
 
 export function SceneLogApp({ movies }: { movies: MovieDetail[] }) {
   const session = useSupabaseUser();
-  if (session.loading) return <main id="main" className={styles.sessionPending} aria-busy="true"><p className="sr-only" role="status">로그인 상태를 확인하는 중입니다.</p></main>;
+  if (session.loading) return <main id="main" className={styles.sessionPending} aria-busy="true"><LoadingIndicator /></main>;
   return session.user
     ? <CloudWorkspace key={session.user.id} user={session.user} movies={movies} />
     : <LoginScreen error={session.error} />;
@@ -82,7 +94,9 @@ function CloudWorkspace({ user, movies }: { user: User; movies: MovieDetail[] })
 }
 function SceneLogWorkspace({ movies: initialMovies, store, user }: { movies: MovieDetail[]; store: WorkspaceStore; user: User }) {
   const { state, update, saveRecord, saveWatchlist, storageError, saving = false, error, reload } = store;
-  const accountName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || state?.userId || "나의 계정";
+  const { profile, loading: profileLoading } = useOwnProfile(user.id);
+  const incomingRequests = useFriendRequests(user.id);
+  const accountName = profile?.displayName || user?.user_metadata?.full_name || "나의 계정";
   const view = useSyncExternalStore(subscribeView, readView, () => "discover" as View);
   // Moving to a menu further right slides the page in from the right, and the other way round. Derived while rendering, so no ref is read.
   const [pane, setPane] = useState<{ view: View; dir: "forward" | "back" | "fade" }>({ view, dir: "fade" });
@@ -120,7 +134,7 @@ function SceneLogWorkspace({ movies: initialMovies, store, user }: { movies: Mov
   function notify(message: string) { setToast(message); if (toastTimer.current) clearTimeout(toastTimer.current); toastTimer.current = setTimeout(() => setToast(""), 4500); }
   function navigate(next: View) { history.replaceState(null, "", `#${next}`); window.dispatchEvent(new HashChangeEvent("hashchange")); window.scrollTo({ top: 0, behavior: "smooth" }); }
   if (!state) return <div className={styles.app}>
-    <WorkspaceHeader user={user} view={view} navigate={navigate} />
+    <WorkspaceHeader user={user} profile={profile} incomingRequests={incomingRequests} accountLoading={(!state && !error) || profileLoading} view={view} navigate={navigate} />
     {error
       ? <main id="main" className={styles.loading}><p role="alert">{error}</p><button className={styles.blackButton} onClick={reload}>다시 불러오기</button></main>
       : <WorkspaceSkeleton view={view} />}
@@ -178,7 +192,7 @@ function SceneLogWorkspace({ movies: initialMovies, store, user }: { movies: Mov
   const year = Number(month.slice(0, 4)); const monthNumber = Number(month.slice(5, 7));
 
   return <div className={styles.app}>
-    <WorkspaceHeader user={user} view={view} navigate={navigate} saving={saving} stats={{ ratedMovies: rated.length, reviews: allMyLogs.filter(log => log.review.trim().length > 0).length }} />
+    <WorkspaceHeader user={user} profile={profile} incomingRequests={incomingRequests} accountLoading={(!state && !error) || profileLoading} view={view} navigate={navigate} saving={saving} stats={{ ratedMovies: rated.length, reviews: allMyLogs.filter(log => log.review.trim().length > 0).length }} onOpenMovie={movie => openMovie(movie)} />
     {storageError && <p className={styles.storageWarning} role="alert">브라우저 저장소에 접근할 수 없어 새로고침 시 기록이 사라질 수 있어요.</p>}
     {error && <div className={styles.storageWarning} role="alert">{error} <button onClick={reload} disabled={saving}>최신 기록 불러오기</button></div>}
     {saving && <p className="sr-only" role="status">기록을 저장하는 중입니다…</p>}
@@ -199,14 +213,14 @@ function SceneLogWorkspace({ movies: initialMovies, store, user }: { movies: Mov
       {view === "collection" && <section className={styles.pageSection}><div className={styles.pageHeading}><div><p className={styles.eyebrow}>03 / COLLECTED BY {accountName.toUpperCase()}</p><h1>나의 영화 <em>컬렉션.</em></h1><p>좋아하는 만큼, 나만의 순서로. {myLogs.length}편의 취향이 모였어요.</p></div></div><div className={styles.collectionToolbar}><Segmented label="컬렉션 보기" items={[{ id: "vhs", label: "기록", icon: List }, { id: "diary", label: "다이어리", icon: BookOpen }, { id: "tier", label: "티어", icon: SlidersHorizontal }]} value={collectionView} onChange={setCollectionView} /></div>
         {collectionView === "diary" && <FilmJournals key={state.userId} movies={movies} logs={sortedLogs} user={state.userId} />}
         {collectionView === "vhs" && <VhsArchive key={state.userId} movies={movies} logs={state.logs} user={state.userId} onOpen={openMovie} onRewatch={movie => openMovie(movie, undefined, true)} />}
-        {collectionView === "tier" && <TierBoard movies={movies} logs={myLogs} disabled={saving} onOpen={movie => openMovie(movie)} onMove={(logId, tier) => { void update(s => ({ ...s, logs: s.logs.map(l => l.id === logId ? { ...l, tier } : l) })); }} />}
+        {collectionView === "tier" && <TierBoard movies={movies} logs={myLogs} disabled={saving} onOpen={movie => openMovie(movie)} onMove={(logId, tier) => { const log = myLogs.find(item => item.id === logId); const movie = log && movies.find(item => item.id === log.movieId); if (log && movie) void saveRecord(movie, { ...log, tier }); }} />}
         {myLogs.length === 0 && collectionView !== "diary" && <Empty title="아직 비어 있는 컬렉션">첫 영화에 별점을 남겨보세요.</Empty>}
         <div className={styles.collectionPrint}><button className={styles.blackButton} onClick={() => navigate("print")}><Printer size={17} />프린트 만들기</button></div>
       </section>}
 
       {view === "themes" && <section className={styles.pageSection}><div className={styles.pageHeading}><div><p className={styles.eyebrow}>04 / A DIFFERENT POINT OF VIEW</p><h1>좋아하는 데는 <em>이유가 있지.</em></h1><p>영화의 별점과는 별개로, 음악과 장면과 이야기에 점수를.</p></div></div><div className={styles.themeCards}>{themes.map((t, i) => <button key={t.key} className={`${styles.themeCard} ${theme === t.key ? styles.activeTheme : ""}`} onClick={() => setTheme(t.key)}><span>0{i + 1} / {t.english}</span><strong>{t.label}</strong><span className={styles.themeSymbol}>{i === 0 ? "♫" : i === 1 ? "▣" : "Aa"}</span><ArrowUpRight size={24} /></button>)}</div><div className={styles.sectionHeading}><h2>나의 {themes.find(t => t.key === theme)?.label} 랭킹 <span>({themeItems.length})</span></h2><button className={styles.textButton} onClick={() => chooseFilm()}>테마 평가 추가 <Plus size={16} /></button></div><div className={styles.themeRankings}>{themeItems.map((item, i) => <button className={styles.themeRank} key={item.movie.id} onClick={() => openMovie(item.movie)}><span className={styles.rankNumber}>{String(i + 1).padStart(2, "0")}</span><Image width={300} height={450} sizes="(max-width: 640px) 45vw, 240px" src={item.movie.poster} alt="" /><span className={styles.rankName}><strong>{item.movie.title}</strong><small>{item.movie.year ?? "개봉일 미정"} / {item.movie.director ?? item.movie.genres.join(" / ")}</small></span><span className={styles.rankOverall}>전체 별점 {item.log.rating?.toFixed(1) ?? "—"}</span><b>{item.score?.toFixed(1) ?? "—"}</b><ArrowUpRight size={21} /></button>)}</div>{themeItems.length === 0 && <Empty title="이 테마의 첫 영화를 골라보세요">영화 기록에서 ‘테마별로 조금 더 자세히’를 펼쳐 평가할 수 있어요.</Empty>}</section>}
 
-      {view === "friends" && <section className={styles.pageSection} aria-label="친구들"><div className={styles.pageHeading}><h1>친구들</h1></div><Empty title="연결된 친구가 없어요" /></section>}
+      {view === "friends" && <FriendsTab key={state.userId} userId={state.userId} incomingRequests={incomingRequests} onOpenMovie={movie => openMovie(movie)} />}
       {view === "print" && <PrintRoom key={state.userId} movies={movies} logs={myLogs} user={accountName} notify={notify} />}
       </div>
     </main>

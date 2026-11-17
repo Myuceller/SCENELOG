@@ -350,7 +350,7 @@
 .toast>svg { flex-shrink:0; color:var(--accent); }
 .storageWarning { background:#fff0ea; color:#a13013; padding:12px; font-size:var(--fs-13); text-align:center; }
 .loading { min-height:100svh; display:grid; place-content:center; justify-items:center; gap:16px; padding:24px; text-align:center; }
-.sessionPending { min-height:100svh; }
+.sessionPending { min-height:100svh; display:grid; place-items:center; }
 .loading>strong { font-size:42px; font-weight:850; letter-spacing:-2px; }
 .loading>p { max-width:360px; margin:0; color:#888; font-size:var(--fs-13); line-height:1.6; }
 @media(max-width:600px) { .dialog { max-width:100%; } }
@@ -439,7 +439,7 @@
 .app .printNav.activePrintNav { background:#111; color:#fff; }
 .app .accountControl { height:42px; padding:4px 10px 4px 4px; border-left:0; border-radius:999px; background:#fff; box-shadow:0 2px 8px #0000000f; }
 .app .nav { order:0; width:auto; gap:4px; padding:4px; border:0; border-radius:999px; background:#ededf0; overflow:visible; }
-.app .nav a { display:flex; align-items:center; gap:7px; padding:10px 16px; border-radius:999px; font-size:var(--fs-14); font-weight:600; color:#77777f; }
+.app .nav a { position:relative; display:flex; align-items:center; gap:7px; padding:10px 16px; border-radius:999px; font-size:var(--fs-14); font-weight:600; color:#77777f; }
 .app .nav a:hover { color:#111; }
 .app .nav .activeNav { background:#fff; color:#111; box-shadow:0 1px 4px #0000001a; }
 .app .activeNav::after { display:none; }
@@ -457,6 +457,13 @@
 }
 
 /* DIRECTION A · controls: pill buttons, soft chips, sliding segmented control, 44px touch targets. */
+@media(max-width:400px) {
+  .app .headerInner { padding-inline:16px; gap:10px; }
+  .app .logo { font-size:20px; }
+  .app .logoMark { width:24px; height:24px; margin-right:7px; }
+  .app .headerActions { flex-shrink:0; gap:6px; }
+}
+
 .blackButton,.redButton,.outlineButton { min-height:48px; padding:0 22px; border:0; border-radius:999px; font-size:var(--fs-13); font-weight:700; letter-spacing:-.2px; transition:transform .2s var(--ease),background .2s,box-shadow .2s,opacity .2s; }
 .blackButton { background:var(--ink); color:#fff; }
 .blackButton:hover:not(:disabled) { background:#2a2a2e; }

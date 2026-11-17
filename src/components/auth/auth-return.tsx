@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { authMessage } from "@/lib/supabase/auth-errors";
+import { LoadingIndicator } from "@/components/ui/loading-indicator";
 import styles from "./auth.module.css";
 
 export function AuthReturn({ resetPassword = false }: { resetPassword?: boolean }) {
@@ -56,7 +57,7 @@ export function AuthReturn({ resetPassword = false }: { resetPassword?: boolean 
     {done ? <p role="status">비밀번호를 변경했습니다.</p> : ready ? <form className={styles.form} onSubmit={submit}>
       <label>새 비밀번호<input type="password" autoComplete="new-password" required minLength={8} maxLength={128} value={password} onChange={(event) => setPassword(event.target.value)} disabled={busy} /></label>
       <button className={styles.primary} disabled={busy}>{busy ? "변경 중…" : "비밀번호 변경"}</button>
-    </form> : !error && <p>인증 링크를 확인하는 중입니다.</p>}
+    </form> : !error && <LoadingIndicator label="로그인 중…" />}
     <p><Link href="/">SceneLog로 돌아가기</Link></p>
   </main>;
 }

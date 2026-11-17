@@ -1,0 +1,41 @@
+/* One ruled tool strip shared by the tier and record tabs: cells share the width, so it never wraps. */
+.controls { position:relative; display:flex; align-items:stretch; margin-bottom:14px; border-top:1px solid #d9d9de; border-bottom:1px solid #d9d9de; }
+.popWrap { flex:1 1 auto; min-width:0; display:flex; border-right:1px solid #e6e6ea; }
+.popButton { display:flex; align-items:center; justify-content:space-between; gap:4px; width:100%; min-width:0; min-height:48px; padding:0 6px 0 10px; border:0; border-radius:0; background:none; color:var(--ink); font-size:14px; font-weight:700; letter-spacing:-.2px; text-align:left; }
+.popButton>span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.popButton[aria-expanded=true] { background:#f2f2f5; }
+.popButton svg { flex:none; color:#8a8a92; }
+.toggle { flex:none; min-height:48px; padding:0 10px; border:0; border-right:1px solid #e6e6ea; background:none; font-size:14px; font-weight:700; letter-spacing:-.2px; white-space:nowrap; color:#9a9aa4; }
+.toggle[aria-pressed=true] { color:var(--ink); background:#f2f2f5; }
+.helpWrap { flex:none; width:44px; border-right:0; }
+.helpWrap .popButton { justify-content:center; padding:0; color:#6d6d78; font-size:14px; font-weight:700; }
+
+.panel { position:absolute; left:0; right:0; top:calc(100% + 6px); z-index:30; padding:6px; border-radius:14px; background:#fff; box-shadow:0 12px 40px #0003,0 0 0 1px #00000010; }
+.list { display:flex; flex-direction:column; }
+.list>button { display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; min-height:46px; padding:0 12px; border:0; border-radius:10px; background:none; text-align:left; font-size:var(--fs-14); font-weight:600; color:var(--ink); white-space:nowrap; }
+.list>button:hover { background:#f2f2f5; }
+.list>button[data-current] { color:var(--accent); }
+.list>button small { font-size:var(--fs-12); font-weight:600; color:#9a9aa4; }
+.list>button span { display:inline-flex; align-items:center; gap:4px; color:#9a9aa4; }
+.list>button.back { justify-content:flex-start; gap:4px; min-height:40px; padding-left:6px; font-size:var(--fs-13); color:#8a8a92; }
+.count { flex:none; margin-left:auto; display:flex; align-items:center; padding:0 2px 0 12px; font-size:14px; font-weight:700; color:#9a9aa4; font-variant-numeric:tabular-nums; white-space:nowrap; }
+
+.help { word-break:keep-all; padding:10px 12px 6px; font-size:var(--fs-13); line-height:1.6; color:#444; }
+.help strong { display:block; margin-bottom:6px; font-size:var(--fs-14); color:var(--ink); }
+.help p { margin:0 0 8px; }
+.help b { margin-right:4px; color:var(--ink); }
+.toggle.action { display:inline-flex; align-items:center; gap:6px; color:var(--ink); }
+.yearBox { display:flex; align-items:center; justify-content:space-between; padding:2px 4px 6px; }
+.yearBox input { width:96px; min-height:44px; border:0; border-bottom:2px solid var(--ink); border-radius:0; background:none; text-align:center; font-size:20px; font-weight:800; letter-spacing:-.6px; font-variant-numeric:tabular-nums; appearance:textfield; -moz-appearance:textfield; }
+.yearBox input::-webkit-inner-spin-button,.yearBox input::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
+.yearBox button { width:44px; height:44px; display:grid; place-items:center; border:0; border-radius:10px; background:none; color:var(--ink); }
+.yearBox button:hover:not(:disabled) { background:#f2f2f5; }
+.yearBox button:disabled { color:#d0d0d6; cursor:default; }
+.panelLabel { margin:6px 12px 2px; padding-top:8px; border-top:1px solid #ececf0; font-size:var(--fs-12); font-weight:700; color:#9a9aa4; }
+
+@media(min-width:700px) {
+  .controls { max-width:560px; }
+  .popWrap { position:relative; }
+  .panel { right:auto; width:300px; }
+  .helpWrap .panel { left:auto; right:0; width:320px; }
+}

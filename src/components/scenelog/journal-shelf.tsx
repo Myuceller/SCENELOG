@@ -23,7 +23,11 @@ function Faces({ item }: { item: ShelfItem }) {
   </>;
 }
 
-export function JournalShelf({ items, initialYear, onOpen, onCreate }: { items: ShelfItem[]; initialYear: number; onOpen: (year: number) => void; onCreate: (year: number) => void }) {
+export function JournalShelf({ items, initialYear, onOpen, onCreate, onActive, focusYear }: {
+  items: ShelfItem[]; initialYear: number; onOpen: (year: number) => void; onCreate: (year: number) => void;
+  /** Called with the year of the book at the front of the shelf. */ onActive?: (year: number) => void;
+  /** When this year changes, the shelf turns to that book. */ focusYear?: number;
+}) {
   const count = items.length, firstYear = items[0].year;
   const shelf = useRef<HTMLDivElement>(null), tapes = useRef<(HTMLDivElement | null)[]>([]);
   const position = useRef({ s: initialYear - firstYear, T: initialYear - firstYear, shown: initialYear - firstYear, lo: firstYear });
@@ -77,6 +81,14 @@ export function JournalShelf({ items, initialYear, onOpen, onCreate }: { items: 
     apply();
   }, [firstYear, count, apply]);
 
+  useEffect(() => { onActive?.(active); }, [active, onActive]);
+  useEffect(() => {
+    if (focusYear === undefined) return;
+    const index = focusYear - firstYear;
+    if (index < 0 || index >= count || index === Math.round(position.current.T)) return;
+    position.current.T = index; run();
+  }, [focusYear, firstYear, count, run]);
+
   const clamp = (value: number) => Math.max(0, Math.min(count - 1, value));
   const go = (delta: number) => { position.current.T = clamp(Math.round(position.current.T) + delta); run(); };
   const activate = (index: number) => { const item = items[index]; if (item.book) onOpen(item.year); else onCreate(item.year); };
@@ -117,7 +129,7 @@ export function JournalShelf({ items, initialYear, onOpen, onCreate }: { items: 
       <div key={shown.year} className={styles.captionIn}>
         <strong>{shown.year}</strong>
         <span>{shown.book ? shown.book.title : "아직 쓰지 않은 한 해"}</span>
-        <small>{shown.book ? `${shown.book.pages.length} PAGES` : "EMPTY SHELF"}</small>
+        {shown.book && <small>{shown.book.pages.length}쪽</small>}
       </div>
     </div>
     <div className={styles.controls}>
@@ -125,6 +137,5 @@ export function JournalShelf({ items, initialYear, onOpen, onCreate }: { items: 
       <button type="button" className={styles.primary} onClick={() => activate(shownIndex)}>{shown.book ? <><BookOpen size={17} />다이어리 열기</> : <><Plus size={17} />{shown.year}년 만들기</>}</button>
       <button type="button" aria-label="다음 해" disabled={shownIndex >= count - 1} onClick={() => go(1)}><ChevronRight size={20} /></button>
     </div>
-    <p className={styles.hint}>좌우로 밀어서 넘기고, 표지를 눌러 열어요</p>
   </div>;
 }

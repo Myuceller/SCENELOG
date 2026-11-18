@@ -29,10 +29,20 @@ export const archiveSchema = z.object({
   }
 });
 export const writeSchema = z.object({ archive: archiveSchema, revision: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER - 1) }).strict();
+export const recordSchema = z.object({ movie, log, revision: writeSchema.shape.revision }).strict()
+  .refine((value) => value.movie.id === value.log.movieId, { message: "영화 정보 불일치" });
+const watchlistSchema = z.discriminatedUnion("saved", [
+  z.object({ saved: z.literal(true), movie, revision: writeSchema.shape.revision }).strict(),
+  z.object({ saved: z.literal(false), movieId: id, revision: writeSchema.shape.revision }).strict(),
+]);
 
 // 전체 아카이브 교체 API의 요청 크기 제한입니다. DB 자체 용량 제한과는 무관합니다.
 export const MAX_ARCHIVE_BYTES = 700_000;
-export async function readArchiveBody(request: Request) {
+export const MAX_RECORD_BYTES = 64_000;
+export function readArchiveBody(request: Request) { return readJsonBody(request, writeSchema, MAX_ARCHIVE_BYTES); }
+export function readRecordBody(request: Request) { return readJsonBody(request, recordSchema, MAX_RECORD_BYTES); }
+export function readWatchlistBody(request: Request) { return readJsonBody(request, watchlistSchema, MAX_RECORD_BYTES); }
+async function readJsonBody<T>(request: Request, schema: z.ZodType<T>, maxBytes: number): Promise<T> {
   if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) {
     throw new ApiError(415, "JSON_REQUIRED", "JSON 형식으로 요청해 주세요.");
   }
@@ -45,14 +55,14 @@ export async function readArchiveBody(request: Request) {
       const { value, done } = await reader.read();
       if (done) break;
       size += value.byteLength;
-      if (size > MAX_ARCHIVE_BYTES) {
+      if (size > maxBytes) {
         await reader.cancel();
         throw new ApiError(413, "ARCHIVE_TOO_LARGE", "저장할 기록의 용량이 너무 큽니다. 기록 백업 후 정리해 주세요.");
       }
       chunks.push(value);
     }
     const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-    const result = writeSchema.safeParse(body);
+    const result = schema.safeParse(body);
     if (!result.success) throw new ApiError(400, "INVALID_ARCHIVE", "기록 형식이 올바르지 않습니다. 입력값을 확인해 주세요.");
     return result.data;
   } catch (error) {

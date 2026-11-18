@@ -1,0 +1,12 @@
+.eyebrow, .titleLine, .titleShort, .action, .month, .pendingRows > span { background:var(--soft); border-radius:8px; }
+.eyebrow { display:inline-block; width:180px; height:.8em; }
+.titleLine, .titleShort { display:inline-block; height:.8em; vertical-align:baseline; max-width:100%; }
+.titleLine { width:8em; }
+.titleShort { width:5.5em; }
+.figure { background:#f1f1f4; }
+.action { width:200px; background:var(--soft); }
+.month { width:150px; }
+.pendingRows { display:grid; gap:16px; }
+.pendingRows > span { display:block; width:min(340px,80%); height:18px; }
+.pendingRows > span + span { width:min(240px,60%); }
+@media(max-width:760px) { .action { width:100%; } .month { align-self:center; } }

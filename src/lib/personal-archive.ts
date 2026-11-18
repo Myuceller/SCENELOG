@@ -1,5 +1,19 @@
 import type { SceneState } from "./scene-model";
-import type { PersonalArchive } from "@/types/archive";
+import type { PersonalArchive, RecordResponse } from "@/types/archive";
+import { mergeMovieCatalog } from "./archive-movies";
+
+/** Apply the confirmed single-record response without replacing unrelated local records. */
+export function applyRecord(state: SceneState, record: RecordResponse): SceneState {
+  const log = { ...record.log, userId: state.userId };
+  return {
+    ...state,
+    catalog: mergeMovieCatalog(state.catalog ?? [], [record.movie]),
+    logs: state.logs.some(item => item.id === log.id && item.userId === state.userId)
+      ? state.logs.map(item => item.id === log.id && item.userId === state.userId ? log : item)
+      : [...state.logs, log],
+    watchlist: state.watchlist.filter(item => item.userId !== state.userId || item.movieId !== log.movieId),
+  };
+}
 
 export function toPersonalArchive(state: SceneState): PersonalArchive {
   const logs = state.logs.flatMap(({ userId, ...log }) => userId === state.userId ? [log] : []);

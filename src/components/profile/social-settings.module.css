@@ -1,0 +1,23 @@
+.form { display:grid; gap:22px; }
+.avatarEditor { display:grid; gap:14px; margin-bottom:26px; }
+.avatarRow { display:flex; align-items:center; gap:18px; }
+.photoActions { display:flex; flex-wrap:wrap; gap:8px; }
+.photoActions button { display:flex; align-items:center; gap:6px; min-height:40px; padding:8px 14px; border:0; border-radius:999px; background:var(--soft,#f2f2f4); color:#555; font:inherit; font-size:13px; cursor:pointer; }
+.photoActions button:disabled { opacity:.5; cursor:wait; }
+.avatarRow small { display:block; margin-top:10px; color:#888; font-size:11px; }
+.name { display:grid; gap:10px; font-size:14px; font-weight:600; }
+.name input { width:100%; border:1px solid #dcdce2; border-radius:12px; padding:13px 14px; font:inherit; font-weight:400; background:#fff; color:#222; }
+.sharing { min-width:0; padding:0; margin:0; border:0; }
+.sharing legend { padding:0; margin-bottom:12px; font-size:14px; font-weight:600; }
+.visibilityOptions { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+.visibilityOption { display:flex; align-items:flex-start; gap:10px; padding:16px; border:1px solid #dcdce2; border-radius:14px; cursor:pointer; }
+.visibilityOption:has(input:checked) { border-color:var(--ink,#222); background:var(--soft,#f2f2f4); }
+.visibilityOption input { accent-color:var(--ink,#222); margin:2px 0 0; flex-shrink:0; }
+.visibilityOption strong { display:block; font-size:14px; }
+.visibilityOption small { display:block; margin-top:6px; color:#777; font-size:12px; line-height:1.6; }
+@media(max-width:600px) { .visibilityOptions { grid-template-columns:1fr; }.visibilityOption { padding:14px; } }
+.save { justify-self:end; min-width:100px; min-height:44px; border:0; border-radius:999px; background:var(--ink,#222); color:#fff; padding:12px 22px; font:inherit; font-size:14px; cursor:pointer; }
+.save:disabled { opacity:.4; cursor:default; }
+.form input:focus-visible,.form button:focus-visible { outline:2px solid #e84b29; outline-offset:4px; }
+.error { color:#b42318; font-size:13px; line-height:1.7; margin:0; }
+.success { color:#28734a; font-size:13px; margin:0; }

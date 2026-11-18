@@ -1,5 +1,7 @@
+import { validateNickname } from "@/lib/profile-name";
+
 export type AuthMode = "login" | "signup";
-export type AuthField = "email" | "password" | "passwordConfirm";
+export type AuthField = "email" | "password" | "passwordConfirm" | "nickname";
 export type AuthValues = Record<AuthField, string>;
 
 export function validateEmail(email: string): string | undefined {
@@ -16,6 +18,8 @@ export function validateAuthForm(mode: AuthMode, values: AuthValues): Partial<Re
   else if (mode === "signup" && values.password.length < 8) errors.password = "비밀번호는 8자 이상으로 입력해 주세요.";
   else if (values.password.length > 128) errors.password = "비밀번호는 128자 이하로 입력해 주세요.";
   if (mode === "signup") {
+    const nicknameError = validateNickname(values.nickname);
+    if (nicknameError) errors.nickname = nicknameError;
     if (!values.passwordConfirm) errors.passwordConfirm = "비밀번호를 한 번 더 입력해 주세요.";
     else if (values.password !== values.passwordConfirm) errors.passwordConfirm = "비밀번호가 일치하지 않아요.";
   }

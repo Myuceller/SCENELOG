@@ -2,29 +2,60 @@
 
 import { useId, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { Eye, EyeOff, MailCheck } from "lucide-react";
+import { Eye, EyeOff, LogOut, MailCheck, MessageSquareText, Settings, Star } from "lucide-react";
 import { validateAuthForm, validateEmail, type AuthField, type AuthMode } from "@/lib/supabase/auth-form";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { authMessage } from "@/lib/supabase/auth-errors";
 import { Modal } from "@/components/scenelog/ui";
+import { LoadingIndicator } from "@/components/ui/loading-indicator";
+import { UserAvatar } from "@/components/profile/user-avatar";
+import type { OwnProfile } from "@/types/social";
 import styles from "./auth.module.css";
 
-export function AuthControls({ user, disabled = false }: { user: User | null; disabled?: boolean }) {
-  const [open, setOpen] = useState(false);
+export function AuthControls({ user, disabled = false, loading = false, stats, onOpenCollection, profile }: {
+  user: User | null;
+  disabled?: boolean;
+  loading?: boolean;
+  stats?: { ratedMovies: number; reviews: number };
+  onOpenCollection: () => void;
+  profile?: OwnProfile;
+}) {
+  const [open, setOpen] = useState<"login" | "profile" | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const name = profile?.displayName || user?.user_metadata?.full_name || "나의 계정";
+  function openCollection() {
+    setOpen(null);
+    onOpenCollection();
+  }
   async function logout() {
     setBusy(true); setError("");
-    try { const { error } = await getSupabaseClient().auth.signOut({ scope: "local" }); if (error) throw error; }
+    try { const { error } = await getSupabaseClient().auth.signOut({ scope: "local" }); if (error) throw error; setOpen(null); }
     catch (error) { setError(authMessage(error)); }
     finally { setBusy(false); }
   }
-  return <div className={styles.controls}>
-    {user ? <><span className={styles.account}>{user.user_metadata?.full_name || user.email?.split("@")[0] || "나의 계정"}</span><button onClick={logout} disabled={disabled || busy}>로그아웃</button></> : <button onClick={() => setOpen(true)}>로그인 / 가입</button>}
-    {error && <span role="alert" className={styles.error}>{error}</span>}
-    {open && <LoginDialog onClose={() => setOpen(false)} />}
-  </div>;
+  return <>
+    {loading ? <LoadingIndicator compact /> : user ? <button type="button" className={styles.profileTrigger} aria-label="내 프로필 열기" aria-haspopup="dialog" aria-expanded={open === "profile"} onClick={() => { setError(""); setOpen("profile"); }}>
+      <UserAvatar userId={user.id} name={name} imageUrl={profile?.avatarUrl} />
+    </button> : <div className={styles.controls}><button onClick={() => setOpen("login")}>로그인 / 가입</button></div>}
+    {!loading && open === "profile" && user && <Modal title="내 프로필" onClose={() => setOpen(null)}>
+      <div className={styles.profileSummary}>
+        <UserAvatar userId={user.id} name={name} size="large" imageUrl={profile?.avatarUrl} />
+        <strong className={styles.profileName}>{name}</strong>
+      </div>
+      <div className={styles.profileStats}>
+        <button type="button" onClick={openCollection}><span className={styles.statLabel}><Star size={17} aria-hidden="true" />평가한 영화</span><span className={styles.statValue}>{stats ? stats.ratedMovies.toLocaleString("ko-KR") : "—"}<span>편</span></span></button>
+        <button type="button" onClick={openCollection}><span className={styles.statLabel}><MessageSquareText size={17} aria-hidden="true" />작성한 리뷰</span><span className={styles.statValue}>{stats ? stats.reviews.toLocaleString("ko-KR") : "—"}<span>개</span></span></button>
+      </div>
+      {error && <p role="alert" className={styles.error}>{error}</p>}
+      <div className={styles.profileActions}>
+        <Link href="/settings" className={styles.settingsButton} onClick={() => setOpen(null)}><Settings size={18} aria-hidden="true" />설정</Link>
+        <button type="button" className={styles.logoutButton} onClick={logout} disabled={disabled || busy}><LogOut size={18} aria-hidden="true" />{busy ? "로그아웃 중…" : "로그아웃"}</button>
+      </div>
+    </Modal>}
+    {open === "login" && !user && <LoginDialog onClose={() => setOpen(null)} />}
+  </>;
 }
 
 export function LoginScreen({ error }: { error: string | null }) {
@@ -46,6 +77,7 @@ function LoginDialog({ onClose }: { onClose: () => void }) {
 function LoginForm({ onSuccess }: { onSuccess?: () => void }) {
   const [mode, setMode] = useState<AuthMode>("login");
   const [email, setEmail] = useState("");
+  const [nickname, setNickname] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [touched, setTouched] = useState<Partial<Record<AuthField, boolean>>>({});
@@ -58,7 +90,7 @@ function LoginForm({ onSuccess }: { onSuccess?: () => void }) {
   const formRef = useRef<HTMLFormElement>(null);
   const id = useId();
   const signup = mode === "signup";
-  const errors = validateAuthForm(mode, { email, password, passwordConfirm });
+  const errors = validateAuthForm(mode, { email, nickname, password, passwordConfirm });
   function fieldError(field: AuthField) {
     return submitted || touched[field] || (field === "passwordConfirm" && passwordConfirm.length > 0) ? errors[field] : undefined;
   }
@@ -71,7 +103,7 @@ function LoginForm({ onSuccess }: { onSuccess?: () => void }) {
     event.preventDefault();
     if (pending.current) return;
     setSubmitted(true); setError(""); setNotice("");
-    const firstInvalid = (["email", "password", "passwordConfirm"] as const).find(field => errors[field]);
+    const firstInvalid = (["nickname", "email", "password", "passwordConfirm"] as const).find(field => errors[field]);
     if (firstInvalid) {
       (formRef.current?.elements.namedItem(firstInvalid) as HTMLInputElement | null)?.focus();
       return;
@@ -80,7 +112,7 @@ function LoginForm({ onSuccess }: { onSuccess?: () => void }) {
     try {
       const auth = getSupabaseClient().auth;
       const { data, error } = signup
-        ? await auth.signUp({ email: email.trim(), password, options: { emailRedirectTo: `${window.location.origin}/auth/callback` } })
+        ? await auth.signUp({ email: email.trim(), password, options: { emailRedirectTo: `${window.location.origin}/auth/callback`, data: { display_name: nickname.trim() } } })
         : await auth.signInWithPassword({ email: email.trim(), password });
       if (error) throw error;
       setPassword(""); setPasswordConfirm(""); setSubmitted(false); setTouched({});
@@ -119,6 +151,11 @@ function LoginForm({ onSuccess }: { onSuccess?: () => void }) {
     <h1 className={styles.title}>{signup ? "나만의 아카이브 시작하기" : "나의 장면을 이어서."}</h1>
     <p className={styles.description}>{signup ? "좋아한 영화와 나의 별점을 한곳에 모아보세요." : "로그인하면 내 영화 기록과 보고 싶은 영화를 다른 기기에서도 볼 수 있어요."}</p>
     <form ref={formRef} className={styles.form} onSubmit={submit} noValidate aria-busy={busy}>
+      {signup && <div className={styles.field}>
+        <label htmlFor={`${id}-nickname`}>닉네임</label>
+        <input id={`${id}-nickname`} name="nickname" autoComplete="nickname" placeholder="사용할 닉네임" required maxLength={30} value={nickname} onChange={event => { setNickname(event.target.value); setError(""); }} onBlur={() => touch("nickname")} disabled={busy} aria-invalid={!!fieldError("nickname")} aria-describedby={fieldError("nickname") ? `${id}-nickname-error` : undefined} />
+        {fieldError("nickname") && <p id={`${id}-nickname-error`} className={styles.fieldError}>{fieldError("nickname")}</p>}
+      </div>}
       <div className={styles.field}>
         <label htmlFor={`${id}-email`}>이메일</label>
         <input id={`${id}-email`} name="email" type="email" autoComplete="email" autoCapitalize="none" spellCheck={false} placeholder="you@example.com" required maxLength={254} value={email} onChange={event => { setEmail(event.target.value); setError(""); setNotice(""); }} onBlur={() => touch("email")} disabled={busy} aria-invalid={!!fieldError("email")} aria-describedby={fieldError("email") ? `${id}-email-error` : signup ? `${id}-email-hint` : undefined} />
@@ -128,7 +165,7 @@ function LoginForm({ onSuccess }: { onSuccess?: () => void }) {
       {signup && <PasswordField key="password-confirm" name="passwordConfirm" label="비밀번호 확인" value={passwordConfirm} onChange={value => { setPasswordConfirm(value); setError(""); }} onBlur={() => touch("passwordConfirm")} disabled={busy} signup error={fieldError("passwordConfirm")} matched={passwordConfirm.length > 0 && password === passwordConfirm && !errors.password} />}
       {error && <p role="alert" className={styles.error}>{error}</p>}
       {notice && <p role="status" className={styles.notice}>{notice}</p>}
-      <button type="submit" className={styles.primary} disabled={busy}>{busy ? "처리 중…" : signup ? "회원가입" : "로그인"}</button>
+      <button type="submit" className={styles.primary} disabled={busy}>{busy ? <LoadingIndicator label="처리 중…" /> : signup ? "회원가입" : "로그인"}</button>
       {signup && <p className={styles.hint}>가입 후 이메일 인증을 완료하면 나의 기록을 시작할 수 있어요.</p>}
       {process.env.NEXT_PUBLIC_SUPABASE_GOOGLE_ENABLED === "true" && <button type="button" onClick={google} disabled={busy}>Google로 계속하기</button>}
       <div className={styles.links}><button type="button" disabled={busy} onClick={() => changeMode(signup ? "login" : "signup")}>{signup ? "이미 계정이 있나요? 로그인" : "처음이신가요? 회원가입"}</button>{!signup && <button type="button" onClick={resetPassword} disabled={busy}>비밀번호 재설정</button>}</div>

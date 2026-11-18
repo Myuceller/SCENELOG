@@ -1,0 +1,5 @@
+.loading { display:inline-flex; align-items:center; justify-content:center; gap:10px; color:#777781; font-size:14px; }
+.spinner { display:inline-block; width:22px; height:22px; flex-shrink:0; border:2px solid #dedee4; border-top-color:#777781; border-radius:50%; animation:rotate .8s linear infinite; }
+.compact { width:44px; height:44px; }
+@keyframes rotate { to { transform:rotate(360deg); } }
+@media(prefers-reduced-motion:reduce) { .spinner { animation:none; } }

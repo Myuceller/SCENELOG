@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Send, X } from "lucide-react";
 import { accounts, type AccountId, type FilmComment } from "@/lib/scene-store";
 import styles from "./scenelog.module.css";
@@ -10,15 +10,24 @@ export function Avatar({ id, small = false }: { id: AccountId; small?: boolean }
   return <span className={`${styles.avatar} ${small ? styles.smallAvatar : ""}`} style={{ background: account.color }} aria-label={account.name}>{account.initial}<i /></span>;
 }
 export function Empty({ title, children }: { title: string; children?: ReactNode }) {
-  return <div className={styles.empty}><span>＋</span><h3>{title}</h3><p>{children}</p></div>;
+  return <div className={styles.empty}><span>＋</span><h3>{title}</h3>{children && <p>{children}</p>}</div>;
 }
 export function Modal({ title, children, onClose, wide = false }: { title: string; children: ReactNode; onClose: () => void; wide?: boolean }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
-  useEffect(() => { const el = ref.current; el?.showModal(); return () => { el?.close(); }; }, []);
-  return <dialog ref={ref} className={`${styles.dialog} ${wide ? styles.wideDialog : ""}`} aria-labelledby={titleId} onCancel={onClose} onClick={e => { if (e.target === e.currentTarget) { const rect = e.currentTarget.getBoundingClientRect(); if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) onClose(); } }}>
-    <div className={styles.dialogTop}><span className={styles.eyebrow}>SCENELOG / PERSONAL ARCHIVE</span><button type="button" className={styles.iconButton} onClick={onClose} aria-label="닫기"><X size={22} /></button></div>
-    <h2 id={titleId} className={styles.dialogTitle}>{title}</h2>{children}
+  const timer = useRef<number | null>(null);
+  const [closing, setClosing] = useState(false);
+  useEffect(() => { const el = ref.current; el?.showModal(); el?.querySelector<HTMLElement>("[data-modal-title]")?.focus({ preventScroll: true }); return () => { el?.close(); if (timer.current !== null) window.clearTimeout(timer.current); }; }, []);
+  // Play the slide-down before the parent unmounts the dialog.
+  const close = useCallback(() => {
+    if (timer.current !== null) return;
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    setClosing(true);
+    timer.current = window.setTimeout(onClose, still ? 0 : 220);
+  }, [onClose]);
+  return <dialog ref={ref} className={`${styles.dialog} ${wide ? styles.wideDialog : ""}`} data-closing={closing || undefined} aria-labelledby={titleId} onCancel={e => { e.preventDefault(); close(); }} onClick={e => { if (e.target === e.currentTarget) { const rect = e.currentTarget.getBoundingClientRect(); if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) close(); } }}>
+    <div className={styles.grabber} aria-hidden="true" />
+    <div className={styles.dialogHead}><h2 id={titleId} className={styles.dialogTitle} tabIndex={-1} data-modal-title>{title}</h2><button type="button" className={styles.iconButton} onClick={close} aria-label="닫기"><X size={22} /></button></div>{children}
   </dialog>;
 }
 export function Discussion({ comments, onSubmit }: { comments: FilmComment[]; onSubmit: (body: string, spoiler: boolean) => void }) {

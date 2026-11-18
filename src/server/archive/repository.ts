@@ -2,7 +2,7 @@ import "server-only";
 import { getDatabasePool, type DatabaseClient, type DatabasePool } from "@/server/db/pool";
 import { inTransaction } from "@/server/db/transaction";
 import { ApiError } from "@/server/http/errors";
-import { emptyArchive, type ArchiveResponse, type ArchiveWrite } from "@/types/archive";
+import { emptyArchive, type ArchiveResponse, type ArchiveWrite, type RecordWrite, type RecordResponse, type WatchlistWrite, type WatchlistResponse } from "@/types/archive";
 import { writeSchema } from "./schema";
 
 // One statement gives GET a consistent snapshot during another device's save.
@@ -36,6 +36,109 @@ function databaseError(error: unknown): never {
 
 export function createArchiveRepository(getDb: () => DatabasePool = getDatabasePool) {
   return {
+    async writeWatchlist(uid: string, body: WatchlistWrite): Promise<WatchlistResponse> {
+      try {
+        return await inTransaction(getDb(), async client => {
+          const movieId = body.saved ? body.movie.id : body.movieId;
+          await client.query("INSERT INTO scenelog.archive_owners (user_id) VALUES ($1) ON CONFLICT DO NOTHING", [uid]);
+          const { rows: [current] } = await client.query<{
+            revision: number; movie_count: number; watchlist_count: number; movie_exists: boolean; saved: boolean;
+          }>(`SELECT revision::float8 AS revision,
+            (SELECT count(*)::int FROM scenelog.archive_movies WHERE user_id = $1) AS movie_count,
+            (SELECT count(*)::int FROM scenelog.watchlist WHERE user_id = $1) AS watchlist_count,
+            EXISTS (SELECT 1 FROM scenelog.archive_movies WHERE user_id = $1 AND movie_id = $2) AS movie_exists,
+            EXISTS (SELECT 1 FROM scenelog.watchlist WHERE user_id = $1 AND movie_id = $2) AS saved
+            FROM scenelog.archive_owners WHERE user_id = $1 FOR UPDATE`, [uid, movieId]);
+          if (current.revision !== body.revision) throw new ApiError(409, "ARCHIVE_CONFLICT", "다른 창이나 기기에서 기록이 변경되었습니다. 최신 기록을 불러온 후 다시 저장해 주세요.");
+          if (body.saved && ((!current.movie_exists && current.movie_count >= 1000) || (!current.saved && current.watchlist_count >= 1000))) {
+            throw new ApiError(400, "ARCHIVE_LIMIT", "저장할 수 있는 기록 수를 초과했습니다.");
+          }
+          if (body.saved) {
+            const { rows: [result] } = await client.query<{ revision: number }>(`
+              WITH movie AS (
+                INSERT INTO scenelog.archive_movies (user_id, movie_id, position, metadata)
+                VALUES ($1, $2::jsonb->>'id', (SELECT COALESCE(max(position) + 1, 0) FROM scenelog.archive_movies WHERE user_id = $1), $2::jsonb)
+                ON CONFLICT (user_id, movie_id) DO UPDATE SET metadata = EXCLUDED.metadata RETURNING movie_id
+              ), saved AS (
+                INSERT INTO scenelog.watchlist (user_id, movie_id, position)
+                SELECT $1, movie_id, (SELECT COALESCE(max(position) + 1, 0) FROM scenelog.watchlist WHERE user_id = $1) FROM movie
+                ON CONFLICT (user_id, movie_id) DO NOTHING
+              )
+              UPDATE scenelog.archive_owners SET revision = revision + 1, updated_at = now()
+              WHERE user_id = $1 RETURNING revision::float8 AS revision`, [uid, JSON.stringify(body.movie)]);
+            return { ...result, saved: true, movieId, movie: body.movie, removedMovie: false };
+          }
+          const { rows: [result] } = await client.query<{ revision: number; removedMovie: boolean }>(`
+            WITH removed AS (
+              DELETE FROM scenelog.watchlist WHERE user_id = $1 AND movie_id = $2 RETURNING movie_id
+            ), unused_movie AS (
+              DELETE FROM scenelog.archive_movies WHERE user_id = $1 AND movie_id IN (SELECT movie_id FROM removed)
+                AND NOT EXISTS (SELECT 1 FROM scenelog.viewing_logs WHERE user_id = $1 AND movie_id = $2)
+              RETURNING movie_id
+            )
+            UPDATE scenelog.archive_owners SET revision = revision + 1, updated_at = now()
+            WHERE user_id = $1 RETURNING revision::float8 AS revision, EXISTS (SELECT 1 FROM unused_movie) AS "removedMovie"`, [uid, movieId]);
+          return { ...result, saved: false, movieId };
+        });
+      } catch (error) { return databaseError(error); }
+    },
+    async writeLog(uid: string, body: RecordWrite): Promise<RecordResponse> {
+      try {
+        return await inTransaction(getDb(), async (client) => {
+          await client.query("INSERT INTO scenelog.archive_owners (user_id) VALUES ($1) ON CONFLICT DO NOTHING", [uid]);
+          // The same owner lock/revision is shared with full-archive writes.
+          const { rows: [current] } = await client.query<{
+            revision: number; movie_count: number; log_count: number;
+            movie_exists: boolean; log_movie_id: string | null;
+          }>(`SELECT revision::float8 AS revision,
+            (SELECT count(*)::int FROM scenelog.archive_movies WHERE user_id = $1) AS movie_count,
+            (SELECT count(*)::int FROM scenelog.viewing_logs WHERE user_id = $1) AS log_count,
+            EXISTS (SELECT 1 FROM scenelog.archive_movies WHERE user_id = $1 AND movie_id = $2) AS movie_exists,
+            (SELECT movie_id FROM scenelog.viewing_logs WHERE user_id = $1 AND id = $3) AS log_movie_id
+            FROM scenelog.archive_owners WHERE user_id = $1 FOR UPDATE`, [uid, body.movie.id, body.log.id]);
+          if (current.revision !== body.revision) {
+            throw new ApiError(409, "ARCHIVE_CONFLICT", "다른 창이나 기기에서 기록이 변경되었습니다. 최신 기록을 불러온 후 다시 저장해 주세요.");
+          }
+          if (body.movie.id !== body.log.movieId || (current.log_movie_id !== null && current.log_movie_id !== body.movie.id)) {
+            throw new ApiError(400, "INVALID_ARCHIVE", "기록의 영화 정보가 일치하지 않습니다.");
+          }
+          if ((!current.movie_exists && current.movie_count >= 1000) || (current.log_movie_id === null && current.log_count >= 1000)) {
+            throw new ApiError(400, "ARCHIVE_LIMIT", "저장할 수 있는 기록 수를 초과했습니다.");
+          }
+          // Only the selected movie/log are upserted. Other rows and their order stay intact.
+          // CTEs keep the mutation in a single DB round trip after the owner lock.
+          const log = { ...body.log, createdAt: new Date(body.log.createdAt).toISOString() };
+          const { rows: [saved] } = await client.query<{ revision: number }>(`
+            WITH saved_movie AS (
+              INSERT INTO scenelog.archive_movies (user_id, movie_id, position, metadata)
+              VALUES ($1, $2::jsonb->>'id',
+                (SELECT COALESCE(max(position) + 1, 0) FROM scenelog.archive_movies WHERE user_id = $1), $2::jsonb)
+              ON CONFLICT (user_id, movie_id) DO UPDATE SET metadata = EXCLUDED.metadata
+              RETURNING movie_id
+            ), saved_log AS (
+              INSERT INTO scenelog.viewing_logs
+                (user_id, id, movie_id, position, rating_tenths, watched_on, review, themes, tier, spoiler, created_at)
+              SELECT $1, $3::jsonb->>'id', saved_movie.movie_id,
+                (SELECT COALESCE(max(position) + 1, 0) FROM scenelog.viewing_logs WHERE user_id = $1),
+                (($3::jsonb->>'rating')::numeric * 10)::smallint, NULLIF($3::jsonb->>'watchedOn', '')::date,
+                $3::jsonb->>'review', $3::jsonb->'themes', $3::jsonb->>'tier',
+                ($3::jsonb->>'spoiler')::boolean, ($3::jsonb->>'createdAt')::timestamptz
+              FROM saved_movie
+              ON CONFLICT (user_id, id) DO UPDATE SET
+                rating_tenths = EXCLUDED.rating_tenths, watched_on = EXCLUDED.watched_on,
+                review = EXCLUDED.review, themes = EXCLUDED.themes, tier = EXCLUDED.tier,
+                spoiler = EXCLUDED.spoiler, created_at = EXCLUDED.created_at
+              RETURNING movie_id
+            ), removed_watchlist AS (
+              DELETE FROM scenelog.watchlist WHERE user_id = $1 AND movie_id IN (SELECT movie_id FROM saved_log)
+            )
+            UPDATE scenelog.archive_owners SET revision = revision + 1, updated_at = now()
+            WHERE user_id = $1 AND EXISTS (SELECT 1 FROM saved_log)
+            RETURNING revision::float8 AS revision`, [uid, JSON.stringify(body.movie), JSON.stringify(log)]);
+          return { movie: body.movie, log, revision: saved.revision };
+        });
+      } catch (error) { return databaseError(error); }
+    },
     async read(uid: string): Promise<ArchiveResponse> {
       try {
         const client = await getDb().connect();

@@ -10,7 +10,7 @@
 .registered { font-size:var(--fs-12); align-self:flex-start; margin:2px 0 0 3px; letter-spacing:0; }
 .nav { display:flex; gap:28px; align-items:center; }
 .nav a { font-size:var(--fs-14); font-weight:600; position:relative; padding:10px 0; white-space:nowrap; }
-.nav a:hover { color:var(--accent); }
+@media(hover:hover) { .nav a:hover { color:var(--accent); } }
 .activeNav::after { content:""; position:absolute; bottom:0; height:3px; background:var(--accent); left:0; right:0; }
 .headerActions { display:flex; align-items:center; gap:19px; }
 .printNav { display:flex; align-items:center; gap:7px; border:none; background:none; font-size:var(--fs-13); font-weight:650; white-space:nowrap; }
@@ -440,7 +440,7 @@
 .app .accountControl { height:42px; padding:4px 10px 4px 4px; border-left:0; border-radius:999px; background:#fff; box-shadow:0 2px 8px #0000000f; }
 .app .nav { position:relative; order:0; width:auto; gap:4px; padding:4px; border:0; border-radius:999px; background:#ededf0; overflow:visible; }
 .app .nav a { position:relative; display:flex; align-items:center; gap:7px; padding:10px 16px; border-radius:999px; font-size:var(--fs-14); font-weight:600; color:#77777f; }
-.app .nav a:hover { color:#111; }
+@media(hover:hover) { .app .nav a:hover { color:#111; } } /* touch keeps :hover after a tap, which turned the tapped icon dark on the black pill */
 .app .nav .activeNav { background:#fff; color:#111; box-shadow:0 1px 4px #0000001a; }
 .app .activeNav::after { display:none; }
 .app .nav svg,.navShort { display:none; }

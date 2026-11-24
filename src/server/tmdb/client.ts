@@ -25,6 +25,7 @@ export async function tmdbRequest<T>(
   const url = new URL(path, TMDB_BASE_URL);
   url.search = new URLSearchParams({ language: "ko-KR", ...params }).toString();
   const signal = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+  const started = Date.now();
 
   try {
     const response = await fetch(url, {
@@ -44,6 +45,19 @@ export async function tmdbRequest<T>(
     return data.data;
   } catch (error) {
     if (error instanceof ApiError) throw error;
+    // Never log messages, headers, URLs or raw errors: they can contain credentials.
+    const cause = error instanceof Error ? error.cause : undefined;
+    const rawCode = cause && typeof cause === "object" && "code" in cause ? cause.code : undefined;
+    const causeCode = typeof rawCode === "string" && /^[A-Z0-9_]{1,80}$/.test(rawCode) ? rawCode : "UNKNOWN";
+    console.error("TMDB_REQUEST_FAILED", {
+      causeCode,
+      errorType: error instanceof TypeError ? "TypeError" : error instanceof SyntaxError ? "SyntaxError" : "Other",
+      elapsedMs: Date.now() - started,
+      timedOut: signal.aborted,
+      tokenHasNonAscii: /[^\x20-\x7e]/.test(token),
+      tokenHasWhitespace: /\s/.test(token),
+      tokenHasBearerPrefix: /^Bearer\s/i.test(token),
+    });
     if (signal.aborted || (error instanceof Error && error.name === "TimeoutError")) {
       throw new ApiError(504, "TMDB_TIMEOUT", "영화 정보를 불러오는 데 시간이 오래 걸립니다. 다시 시도해 주세요.");
     }

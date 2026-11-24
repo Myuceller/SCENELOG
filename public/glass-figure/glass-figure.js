@@ -74,7 +74,7 @@
     var fig = { yaw: 0, pitch: 0, vy: 0, vp: 0, ty: 0, tp: 0, pulse: 0, last: -1e9, used: false, slide: 0.9, g: -1, s0: 0, s1: 0, mode: 'side', queue: null, taps: 0, lastTap: -1e9 };
     function nod() { fig.vp -= 5.5; fig.pulse = 1; }
 
-    var gl = canvas.getContext('webgl', { antialias: false, alpha: false, powerPreference: 'high-performance' });
+    var gl = canvas.getContext('webgl', { antialias: false, alpha: false, powerPreference: 'default' });
     if (!gl) { hint.hidden = true; canvas.style.background = 'linear-gradient(180deg,#ebe8fb,#cfd5f8)'; return null; }
 
     var VERT = 'attribute vec2 a;void main(){gl_Position=vec4(a,0.,1.);}';
@@ -275,17 +275,23 @@
 
     function compile(type, src) {
       var s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
-      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { console.error(gl.getShaderInfoLog(s)); return null; }
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { console.error(gl.getShaderInfoLog(s)); gl.deleteShader(s); return null; }
       return s;
     }
     var vs = compile(gl.VERTEX_SHADER, VERT), fs = compile(gl.FRAGMENT_SHADER, FRAG);
     var prog = gl.createProgram();
     if (vs && fs) { gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog); }
     if (!vs || !fs || !gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+      if (vs) gl.deleteShader(vs);
+      if (fs) gl.deleteShader(fs);
+      gl.deleteProgram(prog);
+      var failedContext = gl.getExtension('WEBGL_lose_context');
+      if (failedContext) failedContext.loseContext();
       hint.hidden = true; canvas.style.background = 'linear-gradient(180deg,#ebe8fb,#cfd5f8)'; return null;
     }
     gl.useProgram(prog);
-    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+    var vertexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
     var loc = gl.getAttribLocation(prog, 'a');
     gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
@@ -294,14 +300,18 @@
 
     /* ---------- sizing with adaptive resolution ---------- */
     var coarse = window.matchMedia && matchMedia('(pointer: coarse)').matches;
-    var scale = Math.min(window.devicePixelRatio || 1, coarse ? 1.25 : 1.5);
+    // Ray marching is expensive per pixel. Start within budget instead of waiting
+    // for dozens of overloaded frames before reducing a Retina-sized buffer.
+    var scale = Math.min(window.devicePixelRatio || 1, 1);
+    var pixelBudget = coarse ? 200000 : 360000;
     var rect = { left: 0, top: 0, width: 1, height: 1 }, shift = 0, shift0 = 0, zoom = 1;
     function resize() {
       rect = stage.getBoundingClientRect();
       var w = Math.max(rect.width, 1), h = Math.max(rect.height, 1);
-      var cap = coarse ? 520000 : 1500000, s = scale;
-      if (w * h * s * s > cap) s = Math.sqrt(cap / (w * h));
-      canvas.width = Math.max(2, Math.round(w * s)); canvas.height = Math.max(2, Math.round(h * s));
+      var s = Math.min(scale, Math.sqrt(pixelBudget / (w * h)));
+      var width = Math.max(2, Math.floor(w * s)), height = Math.max(2, Math.floor(h * s));
+      if (canvas.width !== width) canvas.width = width;
+      if (canvas.height !== height) canvas.height = height;
       gl.viewport(0, 0, canvas.width, canvas.height);
       zoom = opts.zoom || (w / h > 1.05 ? 1 : 1.22);
       shift0 = (opts.offsetX || 0) * (w / h); shift = shift0;         // offsetX: -1..1, where the figure sits sideways (0 = centre)
@@ -465,7 +475,7 @@
     }
 
     function aim(cx, cy) {
-      if (fig.g >= 0) return;
+      if (dead || !visible || document.hidden || fig.g >= 0) return;
       var r = stage.getBoundingClientRect();
       var hx = r.left + r.width / 2 + shift * r.height / 2;
       var hy = r.top + r.height * (1 - 0.304 * zoom) / 2;
@@ -477,7 +487,7 @@
       if (!fig.used) { fig.used = true; hint.classList.add('is-used'); }
     }
     on(window, 'pointermove', function (e) {
-      if (e.pointerType === 'touch') return;
+      if (!visible || document.hidden || e.pointerType === 'touch') return;
       aim(e.clientX, e.clientY);
       stage.style.cursor = onGlasses(e.clientX, e.clientY) ? 'pointer' : '';
     }, { passive: true });
@@ -513,14 +523,23 @@
     on(window, 'keydown', function (e) { if (e.key === 'Escape') deck.open = false; });
 
     /* ---------- loop ---------- */
-    var visible = true, running = false, prev = 0, slow = 0, frames = 0;
-    if (window.IntersectionObserver) { var io = new IntersectionObserver(function (en) { visible = en[0].isIntersecting; kick(); }); io.observe(stage); observers.push(io); }
-    on(document, 'visibilitychange', kick);
-    function kick() { if (!running && visible && !document.hidden) { running = true; prev = 0; requestAnimationFrame(frame); } }
+    var visible = !window.IntersectionObserver, running = false, prev = null, slow = 0, frames = 0, raf = 0;
+    function stop() { cancelAnimationFrame(raf); raf = 0; running = false; prev = null; }
+    function syncVisibility() { if (!visible || document.hidden) stop(); else kick(); }
+    if (window.IntersectionObserver) { var io = new IntersectionObserver(function (en) { visible = en[0].isIntersecting; syncVisibility(); }); io.observe(stage); observers.push(io); }
+    on(document, 'visibilitychange', syncVisibility);
+    on(canvas, 'webglcontextlost', function () { stop(); dead = true; });
+    function kick() { if (!dead && !running && visible && !document.hidden) { running = true; prev = null; raf = requestAnimationFrame(frame); } }
 
     function frame(now) {
-      if (dead || !visible || document.hidden) { running = false; return; }
-      var dt = prev ? Math.min((now - prev) / 1000, 0.05) : 0.016; prev = now;
+      if (dead || !visible || document.hidden) { stop(); return; }
+      // 30 fps while interacting, 15 fps for the subtle idle pose. A 120/144 Hz
+      // desktop should not submit more shader work than a 60 Hz display.
+      var idle = !deck.open && deck.t <= 0 && fig.g < 0 && now - fig.last > 3000;
+      var interval = 1000 / (idle ? 15 : 30);
+      var elapsed = prev === null ? interval : now - prev;
+      if (elapsed < interval - 0.5) { raf = requestAnimationFrame(frame); return; }
+      var dt = Math.min(elapsed / 1000, 0.05); prev = now;
       var time = now / 1000;
 
       // idle: after 3s without input, look around slowly
@@ -560,12 +579,12 @@
       gl.drawArrays(gl.TRIANGLES, 0, 3);
 
       // drop resolution if the device can't keep up
-      frames++; if (dt > 0.03) slow++;
-      if (frames >= 40) {
-        if (slow > 20 && scale > 0.4) { scale *= 0.8; resize(); }
+      frames++; if (elapsed > interval * 1.5) slow++;
+      if (frames >= 15) {
+        if (slow > 7 && pixelBudget > 90000) { pixelBudget = Math.max(90000, Math.floor(pixelBudget * 0.7)); resize(); }
         frames = 0; slow = 0;
       }
-      requestAnimationFrame(frame);
+      raf = requestAnimationFrame(frame);
     }
     kick();
 
@@ -579,8 +598,14 @@
       pulse: function () { fig.pulse = 1; },
       destroy: function () {
         dead = true;
+        stop();
         listeners.forEach(function (l) { l[0].removeEventListener(l[1], l[2], l[3]); });
         observers.forEach(function (o) { o.disconnect(); });
+        gl.deleteBuffer(vertexBuffer);
+        gl.deleteProgram(prog);
+        gl.deleteShader(vs); gl.deleteShader(fs);
+        var context = gl.getExtension('WEBGL_lose_context');
+        if (context) context.loseContext();
         stage.textContent = ''; stage.classList.remove('gf-root', 'gf-open'); stage.style.cursor = '';
       }
     };

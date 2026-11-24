@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import { ArrowLeft, KeyRound } from "lucide-react";
 import { LoadingIndicator } from "@/components/ui/loading-indicator";
-import { LoginScreen } from "@/components/auth/auth-controls";
+import { LoginScreen } from "@/components/auth/login-screen";
 import { useSupabaseUser } from "@/hooks/use-supabase-user";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { authMessage } from "@/lib/supabase/auth-errors";

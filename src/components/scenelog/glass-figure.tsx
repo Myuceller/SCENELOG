@@ -34,6 +34,7 @@ export function GlassFigure({ cards, onCardClick, emptyHint }: { cards: FigureCa
   const latest = useRef({ cards, onCardClick });
   const [open, setOpen] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => { latest.current = { cards, onCardClick }; figure.current?.setCards(cards); }, [cards, onCardClick]);
 
@@ -41,24 +42,59 @@ export function GlassFigure({ cards, onCardClick, emptyHint }: { cards: FigureCa
     const element = stage.current;
     if (!element) return;
     let cancelled = false;
-    loadFigureScript().then(() => {
-      if (cancelled || !window.mountGlassFigure) return;
-      const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#ff4b21";
-      const mounted = window.mountGlassFigure(element, {
-        accent, cards: latest.current.cards, hint: false, cardWidth: 0.54,
-        onCardClick: index => latest.current.onCardClick(index), onToggle: setOpen,
+    let started = false;
+    let visible = !window.IntersectionObserver;
+    let frame = 0;
+    let idle: number | undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    function mount() {
+      if (cancelled || document.hidden) { started = false; return; }
+      void loadFigureScript().then(() => {
+        if (cancelled) return;
+        if (!visible || document.hidden) { started = false; return; }
+        if (!window.mountGlassFigure) { setUnavailable(true); return; }
+        const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#ff4b21";
+        const mounted = window.mountGlassFigure(element!, {
+          accent, cards: latest.current.cards, hint: false, cardWidth: 0.54,
+          onCardClick: index => latest.current.onCardClick(index), onToggle: setOpen,
+        });
+        if (!mounted) { setUnavailable(true); return; }
+        figure.current = mounted;
+        setReady(true);
+      }).catch(() => { if (!cancelled) setUnavailable(true); });
+    }
+    function schedule() {
+      if (cancelled || started || !visible || document.hidden) return;
+      started = true;
+      // Let the archive paint before compiling the decorative WebGL scene.
+      frame = requestAnimationFrame(() => {
+        if (window.requestIdleCallback) idle = window.requestIdleCallback(mount, { timeout: 1000 });
+        else timer = setTimeout(mount, 0);
       });
-      if (!mounted) { setUnavailable(true); return; }
-      figure.current = mounted;
-    }).catch(() => { if (!cancelled) setUnavailable(true); });
-    return () => { cancelled = true; figure.current?.destroy(); figure.current = null; };
+    }
+    const observer = window.IntersectionObserver ? new IntersectionObserver(([entry]) => {
+      visible = entry.isIntersecting;
+      schedule();
+    }) : null;
+    observer?.observe(element);
+    document.addEventListener("visibilitychange", schedule);
+    schedule();
+    return () => {
+      cancelled = true;
+      observer?.disconnect();
+      document.removeEventListener("visibilitychange", schedule);
+      cancelAnimationFrame(frame);
+      if (idle !== undefined) window.cancelIdleCallback(idle);
+      clearTimeout(timer);
+      figure.current?.destroy(); figure.current = null;
+    };
   }, []);
 
   return <div className={styles.wrap}>
-    <div ref={stage} className={styles.stage} data-unavailable={unavailable || undefined} />
+    <div ref={stage} className={styles.stage} data-unavailable={unavailable || undefined} aria-busy={!ready && !unavailable} />
     {open && <button className={styles.close} onClick={() => figure.current?.close()}><X size={18} />닫기</button>}
     {unavailable
       ? <p className={styles.hint} role="status">이 기기에서는 3D 화면을 표시할 수 없어요.</p>
-      : <p className={styles.hint} aria-live="polite">{!cards.length ? emptyHint : open ? "카드를 누르면 자세히 볼 수 있어요" : "머리를 눌러 내 취향 카드를 열어 보세요"}</p>}
+      : <p className={styles.hint} aria-live="polite">{!ready ? "취향 화면을 준비하고 있어요" : !cards.length ? emptyHint : open ? "카드를 누르면 자세히 볼 수 있어요" : "머리를 눌러 내 취향 카드를 열어 보세요"}</p>}
   </div>;
 }

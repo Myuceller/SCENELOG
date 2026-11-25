@@ -18,7 +18,7 @@ const log = z.object({
   tier: z.enum(["S", "A", "B", "C", "D"]).optional(), spoiler: z.boolean(), createdAt: z.iso.datetime({ offset: true }),
 }).strict();
 export const archiveSchema = z.object({
-  logs: z.array(log).max(1000), watchlist: z.array(id).max(1000), catalog: z.array(movie).max(1000),
+  logs: z.array(log), watchlist: z.array(id), catalog: z.array(movie),
 }).strict().superRefine((archive, ctx) => {
   for (const ids of [archive.logs.map((item) => item.id), archive.watchlist, archive.catalog.map((item) => item.id)]) {
     if (new Set(ids).size !== ids.length) ctx.addIssue({ code: "custom", message: "중복 항목" });
@@ -37,7 +37,7 @@ const watchlistSchema = z.discriminatedUnion("saved", [
 ]);
 
 // 전체 아카이브 교체 API의 요청 크기 제한입니다. DB 자체 용량 제한과는 무관합니다.
-export const MAX_ARCHIVE_BYTES = 700_000;
+export const MAX_ARCHIVE_BYTES = 4_000_000;
 export const MAX_RECORD_BYTES = 64_000;
 export function readArchiveBody(request: Request) { return readJsonBody(request, writeSchema, MAX_ARCHIVE_BYTES); }
 export function readRecordBody(request: Request) { return readJsonBody(request, recordSchema, MAX_RECORD_BYTES); }
@@ -57,7 +57,7 @@ async function readJsonBody<T>(request: Request, schema: z.ZodType<T>, maxBytes:
       size += value.byteLength;
       if (size > maxBytes) {
         await reader.cancel();
-        throw new ApiError(413, "ARCHIVE_TOO_LARGE", "저장할 기록의 용량이 너무 큽니다. 기록 백업 후 정리해 주세요.");
+        throw new ApiError(413, "ARCHIVE_TOO_LARGE", "한 번에 전송할 수 있는 요청 크기를 초과했습니다. 기록을 나누어 전송해 주세요.");
       }
       chunks.push(value);
     }

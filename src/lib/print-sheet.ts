@@ -1,5 +1,6 @@
 import type { ArchiveMovie as Movie } from "@/lib/archive-movies";
 import { ratingToTier, type FilmLog, type ThemeKey, type Tier } from "./scene-model";
+import { loadUiFont, uiFontFamily } from "./ui-font";
 
 export interface PrintItem { movie: Movie; log: FilmLog; score: number | null; tier: Tier }
 export function getPrintItems(movies: Movie[], logs: FilmLog[], theme: ThemeKey | "overall", mode: "rating" | "tier"): PrintItem[] {
@@ -12,7 +13,7 @@ export function getPrintItems(movies: Movie[], logs: FilmLog[], theme: ThemeKey 
   return items.sort((a, b) => (mode === "tier" ? tiers.indexOf(a.tier) - tiers.indexOf(b.tier) : 0) || (b.score ?? -1) - (a.score ?? -1) || a.movie.title.localeCompare(b.movie.title));
 }
 export async function exportPrintSheet(items: PrintItem[], title: string, user: string, mode: "rating" | "tier") {
-  await document.fonts.ready;
+  await Promise.all([document.fonts.ready, loadUiFont(title + user.toUpperCase() + items.map(item => item.movie.title + (item.movie.director ?? item.movie.genres.join(" / "))).join(""))]);
   const { getImageProps } = await import("next/image");
   const width = 1200;
   const rowHeight = 186;
@@ -23,7 +24,7 @@ export async function exportPrintSheet(items: PrintItem[], title: string, user: 
   if (!ctx) throw new Error("이미지 저장을 지원하지 않는 브라우저예요.");
   ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, width, height);
   ctx.fillStyle = "#ff4b21"; ctx.fillRect(0, 0, width, 18);
-  const font = '"Pretendard", Arial, sans-serif';
+  const font = uiFontFamily;
   ctx.fillStyle = "#161616"; ctx.font = `850 76px ${font}`; ctx.fillText("SceneLog.", 76, 130);
   ctx.font = `500 20px ${font}`; ctx.textAlign = "right"; ctx.fillText("PERSONAL FILM ARCHIVE", width - 76, 108); ctx.textAlign = "left";
   ctx.font = `700 42px ${font}`; ctx.fillText(title.slice(0, 36), 76, 214, width - 152);

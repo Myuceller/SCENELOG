@@ -63,6 +63,10 @@ export function useCloudArchive(user: User) {
     return persist(async (previous, signal) => {
       const state = fn(previous.state);
       if (state.userId !== userId) throw new Error("로그인한 계정은 변경할 수 없습니다.");
+      // Calendar cover selection and other local view state must not upload the whole library.
+      if (state.logs === previous.state.logs && state.watchlist === previous.state.watchlist && state.catalog === previous.state.catalog) {
+        return { ...previous, state };
+      }
       const result = await requestArchive(userId, signal, { archive: toPersonalArchive(state), revision: previous.revision });
       return { state: fromPersonalArchive(userId, result.archive), revision: result.revision, key };
     });

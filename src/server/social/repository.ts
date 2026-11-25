@@ -4,6 +4,7 @@ import type { User } from "@supabase/supabase-js";
 import { initialProfileName } from "@/lib/profile-name";
 import { getDatabasePool, type DatabaseClient } from "@/server/db/pool";
 import { ApiError } from "@/server/http/errors";
+import type { ServerTiming } from "@/server/http/server-timing";
 import type { CollectionVisibility, SocialSummary, FriendshipAction, FriendshipState, OwnProfile, SocialCollection, SocialList, SocialProfile, SocialRecord, SocialTab } from "@/types/social";
 import { avatarUrl } from "@/server/supabase/storage";
 import { inTransaction } from "@/server/db/transaction";
@@ -43,13 +44,15 @@ const RECORD = `l.id, l.user_id AS "userId", p.display_name AS "displayName", p.
   l.rating_tenths / 10.0 AS rating, l.review, l.spoiler,
   to_char(l.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "createdAt"`;
 
-async function withSocial<T>(actor: SocialActor, work: (client: DatabaseClient) => Promise<T>): Promise<T> {
+async function withSocial<T>(actor: SocialActor, work: (client: DatabaseClient) => Promise<T>, timing?: ServerTiming): Promise<T> {
   const uid = actorId(actor);
   try {
-    const client = await getDatabasePool().connect();
+    const connect = () => getDatabasePool().connect();
+    const client = await (timing ? timing.measure("db_connect", connect) : connect());
     try {
-      await client.query(`INSERT INTO scenelog.profiles (user_id, display_name) VALUES ($1, $2)
+      const prepare = () => client.query(`INSERT INTO scenelog.profiles (user_id, display_name) VALUES ($1, $2)
         ON CONFLICT (user_id) DO NOTHING`, [uid, actorName(actor)]);
+      await (timing ? timing.measure("db_prepare", prepare) : prepare());
       return await work(client);
     } finally { client.release(); }
   } catch (error) {
@@ -113,12 +116,13 @@ export function saveSocialProfile(actor: SocialActor, displayName: string, visib
   });
 }
 
-export function readOwnProfile(actor: SocialActor): Promise<OwnProfile> {
+export function readOwnProfile(actor: SocialActor, timing?: ServerTiming): Promise<OwnProfile> {
   const uid = actorId(actor);
   return withSocial(actor, async client => {
-    const { rows: [profile] } = await client.query<WithAvatarPath<OwnProfile>>(`SELECT user_id AS id, display_name AS "displayName", collection_visibility AS "collectionVisibility", avatar_path AS "avatarPath", equipped_title AS "equippedTitle" FROM scenelog.profiles WHERE user_id = $1`, [uid]);
+    const query = () => client.query<WithAvatarPath<OwnProfile>>(`SELECT user_id AS id, display_name AS "displayName", collection_visibility AS "collectionVisibility", avatar_path AS "avatarPath", equipped_title AS "equippedTitle" FROM scenelog.profiles WHERE user_id = $1`, [uid]);
+    const { rows: [profile] } = await (timing ? timing.measure("db_query", query) : query());
     return withAvatar(profile);
-  });
+  }, timing);
 }
 
 export async function replaceAvatar(actor: SocialActor, path: string | null): Promise<{ previousPath: string | null; profile: OwnProfile }> {

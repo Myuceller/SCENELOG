@@ -1,11 +1,12 @@
 import "server-only";
 import { errorResponse } from "@/server/http/errors";
+import { ServerTiming } from "@/server/http/server-timing";
 import { readArchiveBody, readRecordBody, readWatchlistBody } from "./schema";
 import type { ArchiveResponse, ArchiveWrite, RecordResponse, RecordWrite, WatchlistWrite, WatchlistResponse } from "@/types/archive";
 
 interface Dependencies {
   authenticate: (request: Request) => Promise<{ id: string }>;
-  repository: { read: (id: string) => Promise<ArchiveResponse>; write: (id: string, body: ArchiveWrite) => Promise<ArchiveResponse> };
+  repository: { read: (id: string, timing?: ServerTiming) => Promise<ArchiveResponse>; write: (id: string, body: ArchiveWrite) => Promise<ArchiveResponse> };
 }
 
 export function createRecordHandler({ authenticate, repository }: {
@@ -40,10 +41,12 @@ export function createArchiveHandlers({ authenticate, repository }: Dependencies
   const headers = { "Cache-Control": "private, no-store", Vary: "Authorization" };
   return {
     async GET(request: Request) {
+      const timing = new ServerTiming();
       try {
-        const user = await authenticate(request);
-        return Response.json(await repository.read(user.id), { headers });
-      } catch (error) { return errorResponse(error); }
+        const user = await timing.measure("auth", () => authenticate(request));
+        const archive = await timing.measure("archive", () => repository.read(user.id, timing));
+        return timing.finish(timing.measureSync("serialize", () => Response.json(archive, { headers })));
+      } catch (error) { return timing.finish(errorResponse(error)); }
     },
     async PUT(request: Request) {
       try {

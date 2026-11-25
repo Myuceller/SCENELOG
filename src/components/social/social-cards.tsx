@@ -10,7 +10,7 @@ import styles from "./friends-tab.module.css";
 export function RecordCard({ record, onProfile, onMovie }: { record: SocialRecord; onProfile?: () => void; onMovie: () => void }) {
   const [showSpoiler, setShowSpoiler] = useState(false);
   return <article className={styles.record}>
-    {onProfile && <button type="button" className={styles.recordOwner} onClick={onProfile}><UserAvatar userId={record.userId} name={record.displayName} imageUrl={record.avatarUrl} /><strong>{record.displayName}</strong><time dateTime={record.createdAt}>{record.createdAt.slice(0, 10).replaceAll("-", ".")}</time></button>}
+    {onProfile && <button type="button" className={styles.recordOwner} onClick={onProfile}><UserAvatar userId={record.userId} name={record.displayName} imageUrl={record.avatarUrl} titleId={record.equippedTitle} /><strong>{record.displayName}</strong><time dateTime={record.createdAt}>{record.createdAt.slice(0, 10).replaceAll("-", ".")}</time></button>}
     <div className={styles.film}>
       <button type="button" onClick={onMovie} aria-label={`${record.movie.title} 상세 보기`}><Image src={record.movie.poster} alt="" width={120} height={180} sizes="72px" /></button>
       <div><button type="button" className={styles.title} onClick={onMovie}>{record.movie.title}</button><small>{record.movie.year ?? "개봉일 미정"}</small><span className={styles.rating}><Star size={14} aria-hidden="true" />{record.rating === null ? "미평가" : record.rating.toFixed(1)}</span></div>

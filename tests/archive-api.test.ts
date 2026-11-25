@@ -217,18 +217,20 @@ test("단건 요청의 인증·소유자 주입·영화 불일치·크기·잘�
   assert.equal(writes, 0);
 });
 
-test("단건 API는 기존 기록의 영화 변경을 거부하고 최대 기록 수에서도 수정은 허용", async (t) => {
+test("단건 API는 기존 기록의 영화 변경을 거부하며 예전 5,000건 상한을 넘어 저장·수정 가능", async (t) => {
   const { db } = await memoryDb(t);
   const repository = createArchiveRepository(() => db);
   const data = body();
-  data.archive.logs = Array.from({ length: 1000 }, (_, i) => ({ ...data.archive.logs[0], id: `log-${i}` }));
+  data.archive.logs = Array.from({ length: 5001 }, (_, i) => ({ ...data.archive.logs[0], id: `log-${i}` }));
   await repository.write("user", data);
   const edit = { ...recordBody(1), log: { ...data.archive.logs[0], review: "수정" } };
   await repository.writeLog("user", edit);
-  await assert.rejects(repository.writeLog("user", { ...edit, revision: 2, log: { ...edit.log, id: "overflow" } }), (error: unknown) => error instanceof ApiError && error.code === "ARCHIVE_LIMIT");
+  await repository.writeLog("user", { ...edit, revision: 2, log: { ...edit.log, id: "beyond-old-limit" } });
   const movie = normalizeMovie(movies[1]);
-  await assert.rejects(repository.writeLog("user", { movie, revision: 2, log: { ...edit.log, movieId: movie.id } }), (error: unknown) => error instanceof ApiError && error.code === "INVALID_ARCHIVE");
-  assert.equal((await repository.read("user")).revision, 2);
+  await assert.rejects(repository.writeLog("user", { movie, revision: 3, log: { ...edit.log, movieId: movie.id } }), (error: unknown) => error instanceof ApiError && error.code === "INVALID_ARCHIVE");
+  const stored = await repository.read("user");
+  assert.equal(stored.revision, 3);
+  assert.equal(stored.archive.logs.length, 5002);
 });
 
 test("같은 버전의 두 저장은 한 요청만 성공하고 나머지는 409", async (t) => {
@@ -353,4 +355,53 @@ test("마이그레이션 재실행은 안전하고 적용 파일 변경·실패�
   const probe = await engine.query("SELECT to_regclass('scenelog.rollback_probe') AS name");
   assert.deepEqual(probe.rows, [{ name: null }]);
   assert.equal((await engine.query("SELECT * FROM scenelog.schema_migrations")).rows.length, migrations.length);
+});
+
+
+test("large libraries beyond the old 3,000-movie cap can be saved, read and extended", async t => {
+  const { db } = await memoryDb(t);
+  const repository = createArchiveRepository(() => db);
+  const data = body();
+  const movie = { ...data.archive.catalog[0], description: "" };
+  const log = data.archive.logs[0];
+  data.archive.catalog = Array.from({ length: 3001 }, (_, i) => ({ ...movie, id: `m-${i}` }));
+  data.archive.logs = data.archive.catalog.map((item, i) => ({ ...log, id: `l-${i}`, movieId: item.id }));
+  data.archive.logs.push({ ...log, id: "rewatch", movieId: "m-0" });
+  data.archive.watchlist = [];
+  const handlers = createArchiveHandlers({ authenticate: async () => ({ id: "collector" }), repository });
+  assert.equal((await handlers.PUT(request(data))).status, 200);
+  const next = { ...movie, id: "m-3001" };
+  await repository.writeLog("collector", { movie: next, log: { ...log, id: "l-3001", movieId: next.id }, revision: 1 });
+  const stored = await repository.read("collector");
+  assert.equal(stored.archive.catalog.length, 3002);
+  assert.equal(stored.archive.logs.length, 3003);
+  assert.equal(stored.revision, 2);
+  assert.equal(writeSchema.safeParse({ ...data, archive: { ...data.archive, catalog: Array.from({ length: 10001 }, (_, i) => ({ ...movie, id: `m-${i}` })) } }).success, true);
+});
+
+
+test("more than 1,000 watchlist entries and an archive over the request size limit still allow single-item add/remove", async t => {
+  const { db } = await memoryDb(t);
+  const repository = createArchiveRepository(() => db);
+  const data = body();
+  const movie = { ...data.archive.catalog[0], description: "x".repeat(5000) };
+  data.archive.catalog = Array.from({ length: 1001 }, (_, i) => ({ ...movie, id: `saved-${i}` }));
+  data.archive.watchlist = data.archive.catalog.map(item => item.id);
+  data.archive.logs = [];
+  assert.ok(Buffer.byteLength(JSON.stringify(data)) > MAX_ARCHIVE_BYTES);
+  // Represents an existing library accumulated through many small saves, not one large upload.
+  await repository.write("collector", data);
+  const added = await repository.writeWatchlist("collector", { saved: true, movie: { ...movie, id: "saved-1001" }, revision: 1 });
+  assert.equal(added.revision, 2);
+  assert.equal((await repository.read("collector")).archive.watchlist.length, 1002);
+  const removed = await repository.writeWatchlist("collector", { saved: false, movieId: "saved-1001", revision: 2 });
+  assert.equal(removed.removedMovie, true);
+  const handler = createRecordHandler({ authenticate: async () => ({ id: "collector" }), repository });
+  const recording = { ...recordBody(3), movie: data.archive.catalog[0], log: { ...recordBody().log, movieId: "saved-0" } };
+  assert.equal((await handler(request(recording))).status, 200);
+  const stored = await repository.read("collector");
+  assert.equal(stored.archive.watchlist.length, 1000);
+  assert.equal(stored.archive.logs.length, 1);
+  assert.equal(stored.archive.catalog.length, 1001);
+  assert.equal(stored.revision, 4);
 });

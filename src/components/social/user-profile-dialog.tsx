@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { findAchievement } from "@/lib/achievements";
 import { LockKeyhole } from "lucide-react";
 import type { ArchiveMovie } from "@/lib/archive-movies";
 import type { SocialCollection } from "@/types/social";
@@ -21,7 +22,7 @@ export function UserProfileDialog({ userId, profileId, onClose, onMovie }: {
     {loading && <p className={styles.empty} role="status">프로필을 불러오는 중…</p>}
     {error && <p className={styles.error} role="alert">{error} <button type="button" onClick={() => setRetry(value => value + 1)}>다시 시도</button></p>}
     {data && <>
-      <div className={styles.profile}><UserAvatar userId={data.profile.id} name={data.profile.displayName} size="large" imageUrl={data.profile.avatarUrl} /><h2>{data.profile.displayName}</h2><p>친구 {data.profile.friendCount}명</p><FriendshipActions key={data.profile.id} userId={userId} person={data.profile} allowRemove /></div>
+      <div className={styles.profile}><UserAvatar userId={data.profile.id} name={data.profile.displayName} size="large" imageUrl={data.profile.avatarUrl} titleId={data.profile.equippedTitle} /><h2>{data.profile.displayName}</h2><span>{findAchievement(data.profile.equippedTitle).title}</span><p>친구 {data.profile.friendCount}명</p><FriendshipActions key={data.profile.id} userId={userId} person={data.profile} allowRemove /></div>
       {data.profile.canViewCollection ? <>
         <div className={styles.counts}><span>평가한 영화 <b>{data.profile.ratedCount ?? 0}편</b></span><span>작성한 리뷰 <b>{data.profile.reviewCount ?? 0}개</b></span></div>
         <div className={styles.profileRecords}>{data.records.map(record => <RecordCard key={record.id} record={record} onMovie={() => { onClose(); onMovie(record.movie); }} />)}</div>

@@ -42,17 +42,10 @@ export function createArchiveRepository(getDb: () => DatabasePool = getDatabaseP
           const movieId = body.saved ? body.movie.id : body.movieId;
           await client.query("INSERT INTO scenelog.archive_owners (user_id) VALUES ($1) ON CONFLICT DO NOTHING", [uid]);
           const { rows: [current] } = await client.query<{
-            revision: number; movie_count: number; watchlist_count: number; movie_exists: boolean; saved: boolean;
-          }>(`SELECT revision::float8 AS revision,
-            (SELECT count(*)::int FROM scenelog.archive_movies WHERE user_id = $1) AS movie_count,
-            (SELECT count(*)::int FROM scenelog.watchlist WHERE user_id = $1) AS watchlist_count,
-            EXISTS (SELECT 1 FROM scenelog.archive_movies WHERE user_id = $1 AND movie_id = $2) AS movie_exists,
-            EXISTS (SELECT 1 FROM scenelog.watchlist WHERE user_id = $1 AND movie_id = $2) AS saved
-            FROM scenelog.archive_owners WHERE user_id = $1 FOR UPDATE`, [uid, movieId]);
+            revision: number;
+          }>(`SELECT revision::float8 AS revision
+            FROM scenelog.archive_owners WHERE user_id = $1 FOR UPDATE`, [uid]);
           if (current.revision !== body.revision) throw new ApiError(409, "ARCHIVE_CONFLICT", "다른 창이나 기기에서 기록이 변경되었습니다. 최신 기록을 불러온 후 다시 저장해 주세요.");
-          if (body.saved && ((!current.movie_exists && current.movie_count >= 1000) || (!current.saved && current.watchlist_count >= 1000))) {
-            throw new ApiError(400, "ARCHIVE_LIMIT", "저장할 수 있는 기록 수를 초과했습니다.");
-          }
           if (body.saved) {
             const { rows: [result] } = await client.query<{ revision: number }>(`
               WITH movie AS (
@@ -88,22 +81,15 @@ export function createArchiveRepository(getDb: () => DatabasePool = getDatabaseP
           await client.query("INSERT INTO scenelog.archive_owners (user_id) VALUES ($1) ON CONFLICT DO NOTHING", [uid]);
           // The same owner lock/revision is shared with full-archive writes.
           const { rows: [current] } = await client.query<{
-            revision: number; movie_count: number; log_count: number;
-            movie_exists: boolean; log_movie_id: string | null;
+            revision: number; log_movie_id: string | null;
           }>(`SELECT revision::float8 AS revision,
-            (SELECT count(*)::int FROM scenelog.archive_movies WHERE user_id = $1) AS movie_count,
-            (SELECT count(*)::int FROM scenelog.viewing_logs WHERE user_id = $1) AS log_count,
-            EXISTS (SELECT 1 FROM scenelog.archive_movies WHERE user_id = $1 AND movie_id = $2) AS movie_exists,
-            (SELECT movie_id FROM scenelog.viewing_logs WHERE user_id = $1 AND id = $3) AS log_movie_id
-            FROM scenelog.archive_owners WHERE user_id = $1 FOR UPDATE`, [uid, body.movie.id, body.log.id]);
+            (SELECT movie_id FROM scenelog.viewing_logs WHERE user_id = $1 AND id = $2) AS log_movie_id
+            FROM scenelog.archive_owners WHERE user_id = $1 FOR UPDATE`, [uid, body.log.id]);
           if (current.revision !== body.revision) {
             throw new ApiError(409, "ARCHIVE_CONFLICT", "다른 창이나 기기에서 기록이 변경되었습니다. 최신 기록을 불러온 후 다시 저장해 주세요.");
           }
           if (body.movie.id !== body.log.movieId || (current.log_movie_id !== null && current.log_movie_id !== body.movie.id)) {
             throw new ApiError(400, "INVALID_ARCHIVE", "기록의 영화 정보가 일치하지 않습니다.");
-          }
-          if ((!current.movie_exists && current.movie_count >= 1000) || (current.log_movie_id === null && current.log_count >= 1000)) {
-            throw new ApiError(400, "ARCHIVE_LIMIT", "저장할 수 있는 기록 수를 초과했습니다.");
           }
           // Only the selected movie/log are upserted. Other rows and their order stay intact.
           // CTEs keep the mutation in a single DB round trip after the owner lock.

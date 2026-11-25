@@ -567,7 +567,8 @@
 .viewPane { animation:paneIn .42s var(--ease) backwards; }
 .viewPane[data-dir=forward] { --pane-from:28px; }
 .viewPane[data-dir=back] { --pane-from:-28px; }
-.viewPane[data-dir=fade] { --pane-from:0px; animation-duration:.3s; }
+/* The first data-backed screen should paint immediately; animate menu changes only. */
+.viewPane[data-dir=fade] { --pane-from:0px; animation:none; }
 @keyframes paneIn { from { opacity:0; transform:translateX(var(--pane-from)); } }
 @media(prefers-reduced-motion:reduce) { .viewPane { animation:none; } }
 

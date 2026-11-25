@@ -1,3 +1,4 @@
+import { invalidateAchievements } from "@/lib/achievement-cache";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { authMessage } from "@/lib/supabase/auth-errors";
 import type { ArchiveResponse, ArchiveWrite, RecordResponse, RecordWrite, WatchlistWrite, WatchlistResponse } from "@/types/archive";
@@ -28,5 +29,7 @@ async function request<T>(path: string, userId: string, signal: AbortSignal, bod
     const payload = await response.json().catch(() => null);
     throw new Error(payload?.error?.message ?? "기록 저장소에 연결하지 못했습니다.");
   }
-  return response.json();
+  const result = await response.json();
+  if (body) invalidateAchievements(userId);
+  return result;
 }

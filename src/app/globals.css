@@ -1,4 +1,4 @@
-@font-face { font-family:"Pretendard"; src:url("/fonts/PretendardVariable.woff2") format("woff2"); font-weight:100 900; font-style:normal; font-display:swap; }
+@import "./ui-font.css";
 :root { --background:#fafafa; --foreground:#161616; --surface:#ffffff; --accent:#ff4b21; --muted:#747474; --border:#ddddda; }
 :root { --fs-6:6px; --fs-7:7px; --fs-8:8px; --fs-9:9px; --fs-10:10px; --fs-11:11px; --fs-12:12px; --fs-13:13px; --fs-14:14px; --fs-15:15px; --fs-16:16px; --fs-17:17px; --fs-18:18px; --fs-19:19px; --fs-20:20px; }
 @media(max-width:760px) {
@@ -9,7 +9,7 @@
 :root { --ink:#111; --soft:#ededf0; --soft-hover:#e3e3e8; --ease:cubic-bezier(.2,.8,.2,1); }
 * { box-sizing:border-box; }
 html { scroll-behavior:smooth; }
-body { margin:0; color:var(--foreground); background:var(--background); font-family:"Pretendard",Arial,"Apple SD Gothic Neo","Malgun Gothic",sans-serif; -webkit-font-smoothing:antialiased; }
+body { margin:0; color:var(--foreground); background:var(--background); font-family:"SceneLog Sans",Arial,"Apple SD Gothic Neo","Malgun Gothic",sans-serif; -webkit-font-smoothing:antialiased; }
 button,input,select,textarea { font:inherit; }
 button,a,input,select { -webkit-tap-highlight-color:transparent; }
 button { cursor:pointer; }

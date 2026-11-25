@@ -2,6 +2,7 @@ import type { ArchiveMovie } from "./archive-movies";
 import type { FilmLog } from "./scene-model";
 import { exportPages, itemsForPage, PAGE_HEIGHT, PAGE_WIDTH, type FilmJournal } from "./journal-model";
 import { drawJournalCover, drawJournalPage, loadJournalMedia } from "./journal-render";
+import { loadUiFont, uiFontFamily } from "./ui-font";
 
 export type JournalVideoRatio = "square" | "vertical";
 export async function makeJournalVideo(book: FilmJournal, movies: ArchiveMovie[], logs: FilmLog[], ratio: JournalVideoRatio, signal: AbortSignal, onProgress: (percent: number) => void) {
@@ -10,7 +11,7 @@ export async function makeJournalVideo(book: FilmJournal, movies: ArchiveMovie[]
   if (!await canEncodeVideo("avc", { width, height, frameRate: fps })) throw new Error("이 브라우저에서는 MP4 영상을 만들 수 없어요. 최신 Chrome 또는 Edge에서 다이어리를 열어주세요.");
   const pages = exportPages(book);
   if (!pages.length) throw new Error("우표나 문장을 먼저 한 개 붙여주세요.");
-  await document.fonts.ready;
+  await Promise.all([document.fonts.ready, loadUiFont(book.title + "SCENELOG / PRIVATE JOURNAL A YEAR IN SCENES. 0123456789")]);
   const images = await loadJournalMedia(movies, pages.flatMap(page => page.items));
   const makeCanvas = () => { const canvas = document.createElement("canvas"); canvas.width = PAGE_WIDTH * 2; canvas.height = PAGE_HEIGHT * 2; return canvas; };
   const sheets = pages.map(page => {
@@ -34,11 +35,11 @@ export async function makeJournalVideo(book: FilmJournal, movies: ArchiveMovie[]
       if (signal.aborted) throw new DOMException("영상 만들기를 취소했어요.", "AbortError");
       const time = frame / fps;
       ctx.fillStyle = "#303544"; ctx.fillRect(0, 0, width, height);
-      ctx.textAlign = "center"; ctx.fillStyle = "#eee9df"; ctx.font = '500 20px "Pretendard", sans-serif';
+      ctx.textAlign = "center"; ctx.fillStyle = "#eee9df"; ctx.font = `500 20px ${uiFontFamily}`;
       ctx.fillText("SCENELOG / MY FILM JOURNAL", width / 2, height * .12);
       ctx.font = '500 64px Georgia, serif'; ctx.fillText(String(book.year), width / 2, height * .2);
-      ctx.font = '400 22px "Pretendard", sans-serif'; ctx.fillStyle = "#c9c9ce"; ctx.fillText(book.title, width / 2, height * .87, width * .8);
-      ctx.font = '400 14px "Pretendard", sans-serif'; ctx.fillText("COLLECT SCENES. KEEP YOUR POINT OF VIEW.", width / 2, height * .91);
+      ctx.font = `400 22px ${uiFontFamily}`; ctx.fillStyle = "#c9c9ce"; ctx.fillText(book.title, width / 2, height * .87, width * .8);
+      ctx.font = `400 14px ${uiFontFamily}`; ctx.fillText("COLLECT SCENES. KEEP YOUR POINT OF VIEW.", width / 2, height * .91);
       const bookWidth = width * .88, pageWidth = bookWidth / 2, bookHeight = pageWidth * PAGE_HEIGHT / PAGE_WIDTH;
       const x = (width - bookWidth) / 2, y = height * .53 - bookHeight / 2;
       ctx.textAlign = "left";

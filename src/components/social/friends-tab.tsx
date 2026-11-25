@@ -55,7 +55,7 @@ export function FriendsTab({ userId, onOpenMovie, incomingRequests }: { userId: 
       {list.data && <>
         {tab === "feed" ? <div className={styles.recordGrid}>{list.data.records.map(record => <RecordCard key={`${record.userId}:${record.id}`} record={record} onProfile={() => setSelected(record.userId)} onMovie={() => onOpenMovie(record.movie)} />)}</div>
           : <div className={styles.people}>{list.data.users.map(person => <article className={styles.person} key={person.id}>
-            <button type="button" className={styles.identity} onClick={() => setSelected(person.id)}><UserAvatar userId={person.id} name={person.displayName} imageUrl={person.avatarUrl} /><span><strong>{person.displayName}</strong><small>{person.canViewCollection ? `평가 ${person.ratedCount ?? 0}편 · 리뷰 ${person.reviewCount ?? 0}개` : "비공개 컬렉션"}</small></span></button>
+            <button type="button" className={styles.identity} onClick={() => setSelected(person.id)}><UserAvatar userId={person.id} name={person.displayName} imageUrl={person.avatarUrl} titleId={person.equippedTitle} /><span><strong>{person.displayName}</strong><small>{person.canViewCollection ? `평가 ${person.ratedCount ?? 0}편 · 리뷰 ${person.reviewCount ?? 0}개` : "비공개 컬렉션"}</small></span></button>
             <FriendshipActions userId={userId} person={person} />
           </article>)}</div>}
         {!list.data.records.length && !list.data.users.length && <div className={styles.empty}>

@@ -3,6 +3,7 @@ import type { FilmLog } from "./scene-model";
 import { PAGE_WIDTH, PAGE_HEIGHT, paperColors, coverColors, itemHeight, type FilmJournal, type JournalPage, type JournalItem } from "./journal-model";
 import { loadJournalPhotos } from "./journal-assets";
 import { journalFontFamily, loadJournalFonts } from "./journal-fonts";
+import { loadUiFont, uiFontFamily } from "./ui-font";
 
 export type PosterImages = Map<string, HTMLImageElement>;
 const posterCache = new Map<string, Promise<HTMLImageElement>>();
@@ -24,10 +25,12 @@ export async function loadJournalPosters(movies: ArchiveMovie[], movieIds: strin
   })));
 }
 export const TEXT_LINE_HEIGHT = 1.38;
-const sans = '"Pretendard", Arial, sans-serif';
+const sans = uiFontFamily;
 const serif = 'Georgia, "Batang", serif';
 export async function loadJournalMedia(movies: ArchiveMovie[], items: JournalItem[]) {
-  const [posters, photos] = await Promise.all([loadJournalPosters(movies, items.flatMap(item => item.movieId ? [item.movieId] : [])), loadJournalPhotos(items), loadJournalFonts(items)]);
+  const movieIds = new Set(items.flatMap(item => item.movieId ? [item.movieId] : []));
+  const [posters, photos] = await Promise.all([loadJournalPosters(movies, [...movieIds]), loadJournalPhotos(items), loadJournalFonts(items),
+    loadUiFont("SCENELOG / MY COLLECTION 0123456789.-" + movies.filter(movie => movieIds.has(movie.id)).map(movie => movie.title).join(""))]);
   return new Map([...posters, ...photos]);
 }
 export function fittedTextHeight(item: JournalItem) {

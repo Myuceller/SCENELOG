@@ -39,7 +39,7 @@ export function AvatarEditor({ profile }: { profile: OwnProfile }) {
     void save(file);
   }
   return <div className={styles.avatarEditor}>
-    <div className={styles.avatarRow}><UserAvatar userId={profile.id} name={profile.displayName} size="large" imageUrl={preview ?? profile.avatarUrl} />
+    <div className={styles.avatarRow}><UserAvatar userId={profile.id} name={profile.displayName} size="large" imageUrl={preview ?? profile.avatarUrl} titleId={profile.equippedTitle} />
       <div><div className={styles.photoActions}><button type="button" onClick={() => input.current?.click()} disabled={busy}><Camera size={16} aria-hidden="true" />{busy ? "저장 중…" : "사진 변경"}</button>{profile.avatarUrl && <button type="button" onClick={() => void save(null)} disabled={busy}>사진 삭제</button>}</div><small>JPG, PNG, WebP · 최대 3MB</small></div>
     </div>
     <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={select} disabled={busy} aria-label="프로필 사진 선택" />

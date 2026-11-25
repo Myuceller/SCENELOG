@@ -1,16 +1,18 @@
 import "server-only";
+import { findAchievement } from "@/lib/achievements";
 import type { User } from "@supabase/supabase-js";
 import { initialProfileName } from "@/lib/profile-name";
 import { getDatabasePool, type DatabaseClient } from "@/server/db/pool";
 import { ApiError } from "@/server/http/errors";
+import type { ServerTiming } from "@/server/http/server-timing";
 import type { CollectionVisibility, SocialSummary, FriendshipAction, FriendshipState, OwnProfile, SocialCollection, SocialList, SocialProfile, SocialRecord, SocialTab } from "@/types/social";
 import { avatarUrl } from "@/server/supabase/storage";
 import { inTransaction } from "@/server/db/transaction";
 
 type WithAvatarPath<T> = Omit<T, "avatarUrl"> & { avatarPath: string | null };
-function withAvatar<T extends { avatarPath: string | null }>(row: T) {
+function withAvatar<T extends { avatarPath: string | null; equippedTitle: string }>(row: T) {
   const { avatarPath, ...rest } = row;
-  return { ...rest, avatarUrl: avatarUrl(avatarPath) };
+  return { ...rest, equippedTitle: findAchievement(row.equippedTitle).id, avatarUrl: avatarUrl(avatarPath) };
 }
 
 export type SocialActor = string | Pick<User, "id" | "user_metadata">;
@@ -23,7 +25,7 @@ const CAN_VIEW = `(p.user_id = $1 OR p.collection_visibility = 'public' OR
   (p.collection_visibility = 'friends' AND EXISTS (SELECT 1 FROM scenelog.friendships access
     WHERE access.status = 'accepted' AND ((access.requester_id = $1 AND access.recipient_id = p.user_id)
       OR (access.recipient_id = $1 AND access.requester_id = p.user_id)))))`;
-const PROFILE = `p.user_id AS id, p.display_name AS "displayName", p.avatar_path AS "avatarPath", p.collection_visibility AS "collectionVisibility",
+const PROFILE = `p.user_id AS id, p.display_name AS "displayName", p.avatar_path AS "avatarPath", p.equipped_title AS "equippedTitle", p.collection_visibility AS "collectionVisibility",
   ${CAN_VIEW} AS "canViewCollection",
   COALESCE((SELECT CASE WHEN f.status = 'accepted' THEN 'friends'
     WHEN f.requester_id = $1 THEN 'outgoing' ELSE 'incoming' END FROM scenelog.friendships f
@@ -38,17 +40,19 @@ const PROFILE = `p.user_id AS id, p.display_name AS "displayName", p.avatar_path
   CASE WHEN ${CAN_VIEW} THEN
     (SELECT count(*)::int FROM scenelog.viewing_logs WHERE user_id = p.user_id AND btrim(review) <> '')
     ELSE NULL END AS "reviewCount"`;
-const RECORD = `l.id, l.user_id AS "userId", p.display_name AS "displayName", p.avatar_path AS "avatarPath", m.metadata AS movie,
+const RECORD = `l.id, l.user_id AS "userId", p.display_name AS "displayName", p.avatar_path AS "avatarPath", p.equipped_title AS "equippedTitle", m.metadata AS movie,
   l.rating_tenths / 10.0 AS rating, l.review, l.spoiler,
   to_char(l.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "createdAt"`;
 
-async function withSocial<T>(actor: SocialActor, work: (client: DatabaseClient) => Promise<T>): Promise<T> {
+async function withSocial<T>(actor: SocialActor, work: (client: DatabaseClient) => Promise<T>, timing?: ServerTiming): Promise<T> {
   const uid = actorId(actor);
   try {
-    const client = await getDatabasePool().connect();
+    const connect = () => getDatabasePool().connect();
+    const client = await (timing ? timing.measure("db_connect", connect) : connect());
     try {
-      await client.query(`INSERT INTO scenelog.profiles (user_id, display_name) VALUES ($1, $2)
+      const prepare = () => client.query(`INSERT INTO scenelog.profiles (user_id, display_name) VALUES ($1, $2)
         ON CONFLICT (user_id) DO NOTHING`, [uid, actorName(actor)]);
+      await (timing ? timing.measure("db_prepare", prepare) : prepare());
       return await work(client);
     } finally { client.release(); }
   } catch (error) {
@@ -107,17 +111,18 @@ export function saveSocialProfile(actor: SocialActor, displayName: string, visib
   const uid = actorId(actor);
   return withSocial(actor, async client => {
     const { rows: [profile] } = await client.query<WithAvatarPath<OwnProfile>>(`UPDATE scenelog.profiles SET display_name = $2, collection_visibility = $3, collection_public = ($3 = 'public'), updated_at = now() WHERE user_id = $1
-      RETURNING user_id AS id, display_name AS "displayName", collection_visibility AS "collectionVisibility", avatar_path AS "avatarPath"`, [uid, displayName, visibility]);
+      RETURNING user_id AS id, display_name AS "displayName", collection_visibility AS "collectionVisibility", avatar_path AS "avatarPath", equipped_title AS "equippedTitle"`, [uid, displayName, visibility]);
     return withAvatar(profile);
   });
 }
 
-export function readOwnProfile(actor: SocialActor): Promise<OwnProfile> {
+export function readOwnProfile(actor: SocialActor, timing?: ServerTiming): Promise<OwnProfile> {
   const uid = actorId(actor);
   return withSocial(actor, async client => {
-    const { rows: [profile] } = await client.query<WithAvatarPath<OwnProfile>>(`SELECT user_id AS id, display_name AS "displayName", collection_visibility AS "collectionVisibility", avatar_path AS "avatarPath" FROM scenelog.profiles WHERE user_id = $1`, [uid]);
+    const query = () => client.query<WithAvatarPath<OwnProfile>>(`SELECT user_id AS id, display_name AS "displayName", collection_visibility AS "collectionVisibility", avatar_path AS "avatarPath", equipped_title AS "equippedTitle" FROM scenelog.profiles WHERE user_id = $1`, [uid]);
+    const { rows: [profile] } = await (timing ? timing.measure("db_query", query) : query());
     return withAvatar(profile);
-  });
+  }, timing);
 }
 
 export async function replaceAvatar(actor: SocialActor, path: string | null): Promise<{ previousPath: string | null; profile: OwnProfile }> {
@@ -127,7 +132,7 @@ export async function replaceAvatar(actor: SocialActor, path: string | null): Pr
       await client.query(`INSERT INTO scenelog.profiles (user_id, display_name) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [uid, actorName(actor)]);
       const { rows: [previous] } = await client.query<{ avatar_path: string | null }>("SELECT avatar_path FROM scenelog.profiles WHERE user_id = $1 FOR UPDATE", [uid]);
       const { rows: [profile] } = await client.query<WithAvatarPath<OwnProfile>>(`UPDATE scenelog.profiles SET avatar_path = $2, updated_at = now() WHERE user_id = $1
-        RETURNING user_id AS id, display_name AS "displayName", collection_visibility AS "collectionVisibility", avatar_path AS "avatarPath"`, [uid, path]);
+        RETURNING user_id AS id, display_name AS "displayName", collection_visibility AS "collectionVisibility", avatar_path AS "avatarPath", equipped_title AS "equippedTitle"`, [uid, path]);
       return { previousPath: previous.avatar_path, profile: withAvatar(profile) };
     });
   } catch { throw new ApiError(503, "PROFILE_SAVE_FAILED", "프로필 사진을 저장하지 못했습니다. 다시 시도해 주세요."); }

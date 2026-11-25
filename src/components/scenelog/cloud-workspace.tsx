@@ -24,7 +24,6 @@ import { FilmCalendar, DayRecords } from "./film-calendar";
 import { CatalogMode, CatalogFeedback, CatalogPagination, type LibraryMode } from "./catalog-controls";
 import styles from "./scenelog.module.css";
 import type { User } from "@supabase/supabase-js";
-import { useCloudArchive } from "@/hooks/use-cloud-archive";
 import { AuthControls } from "@/components/auth/auth-controls";
 import { GlobalSearch } from "@/components/search/global-search";
 import { useOwnProfile } from "@/hooks/use-own-profile";
@@ -86,8 +85,7 @@ function WorkspaceHeader({ user, view, navigate, saving = false, stats, onOpenMo
   </>;
 }
 
-export function CloudWorkspace({ user }: { user: User }) {
-  const store = useCloudArchive(user);
+export function CloudWorkspace({ user, store }: { user: User; store: WorkspaceStore }) {
   return <SceneLogWorkspace store={store} user={user} />;
 }
 function SceneLogWorkspace({ store, user }: { store: WorkspaceStore; user: User }) {

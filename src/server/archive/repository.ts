@@ -2,6 +2,7 @@ import "server-only";
 import { getDatabasePool, type DatabaseClient, type DatabasePool } from "@/server/db/pool";
 import { inTransaction } from "@/server/db/transaction";
 import { ApiError } from "@/server/http/errors";
+import type { ServerTiming } from "@/server/http/server-timing";
 import { emptyArchive, type ArchiveResponse, type ArchiveWrite, type RecordWrite, type RecordResponse, type WatchlistWrite, type WatchlistResponse } from "@/types/archive";
 import { writeSchema } from "./schema";
 
@@ -21,10 +22,11 @@ const READ_ARCHIVE = `
     ORDER BY l.position) FROM scenelog.viewing_logs l WHERE l.user_id = o.user_id), '[]'::jsonb)
   ) AS archive FROM scenelog.archive_owners o WHERE o.user_id = $1`;
 
-async function readStored(client: DatabaseClient, uid: string): Promise<ArchiveResponse> {
-  const { rows } = await client.query(READ_ARCHIVE, [uid]);
+async function readStored(client: DatabaseClient, uid: string, timing?: ServerTiming): Promise<ArchiveResponse> {
+  const query = () => client.query(READ_ARCHIVE, [uid]);
+  const { rows } = await (timing ? timing.measure("db_query", query) : query());
   if (!rows.length) return { archive: emptyArchive(), revision: 0 };
-  const parsed = writeSchema.safeParse(rows[0]);
+  const parsed = timing ? timing.measureSync("validate", () => writeSchema.safeParse(rows[0])) : writeSchema.safeParse(rows[0]);
   if (!parsed.success) throw new ApiError(500, "ARCHIVE_INVALID", "저장된 기록을 읽지 못했습니다. 기록을 덮어쓰지 않고 중단했습니다.");
   return parsed.data;
 }
@@ -125,10 +127,11 @@ export function createArchiveRepository(getDb: () => DatabasePool = getDatabaseP
         });
       } catch (error) { return databaseError(error); }
     },
-    async read(uid: string): Promise<ArchiveResponse> {
+    async read(uid: string, timing?: ServerTiming): Promise<ArchiveResponse> {
       try {
-        const client = await getDb().connect();
-        try { return await readStored(client, uid); }
+        const connect = () => getDb().connect();
+        const client = await (timing ? timing.measure("db_connect", connect) : connect());
+        try { return await readStored(client, uid, timing); }
         finally { client.release(); }
       } catch (error) { return databaseError(error); }
     },

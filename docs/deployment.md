@@ -47,6 +47,13 @@ CI/CD 변경을 main에 먼저 병합했다면 dev에도 main을 병합해 워�
 
 ## 운영 확인과 실패 대응
 
+API 실행 지역은 루트 `vercel.json`의 `"regions": ["sin1"]`로 지정합니다.
+`sin1`은 싱가포르이며, 현재 Supabase DB 연결 지역(`ap-southeast-1`)과 맞춘 설정입니다.
+이 변경은 새 배포부터 적용됩니다. GitHub Actions의 운영 배포가 완료되면
+`/api/archive` 또는 `/api/profile` 응답의 `x-vercel-id`에서 실행 지역이
+`sin1`인지 확인하고, 로그인한 요청의 `Server-Timing`으로 인증·DB 구간을 비교합니다.
+앞에 표시되는 `icn1` 등은 요청을 받은 엣지 지역일 수 있으므로 실행 지역과 구분합니다.
+
 1. GitHub **Actions → CI / Vercel**에서 `Quality checks`, `Deploy production` 결과를 확인합니다.
 2. 성공한 실행 요약의 배포 주소를 열고 로그인·영화 조회·기록 읽기/저장을 확인합니다.
 3. 환경변수 수정 후에는 Actions에서 최신 main 실행을 다시 실행하거나 수동 실행합니다.
